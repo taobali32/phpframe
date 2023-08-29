@@ -59,9 +59,13 @@ class Client
         }
     }
 
+    public function clientFd(){
+        return $this->_mainClient;
+    }
 
-    public function eventLoop(){
 
+    public function eventLoop()
+    {
         if (is_resource($this->_mainClient)){
             $readFds = [$this->_mainClient];
             $writeFds = [$this->_mainClient];
@@ -76,9 +80,11 @@ class Client
             if ($readFds){
                 $this->recv4socket();
             }
-        }
 
-        return true;
+            return true;
+        }else{
+            return false;
+        }
 
     }
 
@@ -134,6 +140,6 @@ class Client
 
         $writeLen = fwrite($this->_mainClient,$bin[1],$bin[0]);
 
-        fprintf(STDOUT, "write:%d size\n", $writeLen);
+//        fprintf(STDOUT, "write:%d size\n", $writeLen);
     }
 }

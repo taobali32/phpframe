@@ -74,6 +74,9 @@ class TcpConnection
 
         }else{
             $this->_recvBufferFull++;
+
+            $this->_server->runEventCallBack("receiveBufferFull", [$this]);
+
         }
 
         if ($this->_recvLen > 0){

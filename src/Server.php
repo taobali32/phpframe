@@ -68,7 +68,7 @@ class Server
     public function listen()
     {
         $flag = STREAM_SERVER_LISTEN|STREAM_SERVER_BIND;
-        $option['socket']['backlog'] = 10;
+        $option['socket']['backlog'] = 102400;
 
         //  创建并返回一个资源流上下文，该资源流中包含了 options 中提前设定的所有参数的值。
         //  https://www.php.net/manual/zh/function.stream-context-create.php
@@ -91,12 +91,14 @@ class Server
 
     public function eventLoop()
     {
-        while (1) {
-            $readFds = [$this->_mainSocket];
-            $writeFds = [];
-            $expFds = [];
+        $readFds = [$this->_mainSocket];
 
-            // 开启统计
+        while (1) {
+
+            $reads = $readFds;
+            $writes = [];
+            $expts = [];
+
             $this->statistics();
 
             if (!empty(static::$_connections)) {
@@ -104,29 +106,37 @@ class Server
                     $sockfd = $connection->connfd();
 
                     if (is_resource($sockfd)){
-                        $readFds[] = $sockfd;
-                        $writeFds[] = $sockfd;
+                        $reads[] = $sockfd;
+                        $writes[] = $sockfd;
                     }
                 }
             }
 
-            //  函数是 PHP 中用于多路复用的一个函数 它可以检查多个文件流（套接字、文件等）是否可读、可写或出现异常，并在有可读、可写或异常情况发生时返回相应的文件流。
-            $ret = stream_select($readFds, $writeFds, $expFds, null);
+//           这些是不可以重复的,重复了会出现好多奇怪的问题!!
+//            print_r($reads);
+//            print_r($writes);
 
+
+            //  函数是 PHP 中用于多路复用的一个函数 它可以检查多个文件流（套接字、文件等）是否可读、可写或出现异常，并在有可读、可写或异常情况发生时返回相应的文件流。
+            $ret = stream_select($reads, $writes, $expts, null);
+
+            restore_error_handler();
             if ($ret === false) {
                 break;
             }
 
-            foreach ($readFds as $fd) {
+            foreach ($reads as $fd) {
                 // 如果是监听socket
                 if ($fd === $this->_mainSocket) {
                     $this->accept();
                 } else {
-                    /**
-                     * @var TcpConnection $connection
-                     */
-                    $connection = static::$_connections[(int)$fd];
-                    $connection->recv4socket();
+                    if (isset( static::$_connections[(int)$fd])){
+                        /**
+                         * @var TcpConnection $connection
+                         */
+                        $connection = static::$_connections[(int)$fd];
+                        $connection->recv4socket();
+                    }
                 }
             }
         }
