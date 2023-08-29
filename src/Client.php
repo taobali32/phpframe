@@ -42,11 +42,10 @@ class Client
         //  默认情况下，流将以阻塞模式打开。您可以使用stream_set_blocking()将其切换到非阻塞模式 。
         $this->_mainClient = stream_socket_client($this->_local_socket,$errno,$errstr);
 
-
         if (is_resource($this->_mainClient)){
             $this->runEventCallBack("connect", [$this]);
 
-            $this->eventLoop();
+//            $this->eventLoop();
         }else{
             $this->runEventCallBack("error", [$this, $errno, $errstr]);
             exit(0);
@@ -62,25 +61,25 @@ class Client
 
 
     public function eventLoop(){
-        while (1){
+
+        if (is_resource($this->_mainClient)){
             $readFds = [$this->_mainClient];
             $writeFds = [$this->_mainClient];
             $exptFds = [$this->_mainClient];
-            
+
             $ret = stream_select($readFds, $writeFds, $exptFds, NULL);
 
             if ($ret <= 0 || $ret == false){
-                break;
+                return false;
             }
 
             if ($readFds){
                 $this->recv4socket();
             }
-
-//            if ($writeFds){
-//                $this->recv4socket();
-//            }
         }
+
+        return true;
+
     }
 
 

@@ -25,3 +25,10 @@ $client->on("receive",function (\Jtar\Client $client,$msg){
 });
 
 $client->start();
+
+while (1){
+    $client->write2socket("hello, i am client");
+    if (!$client->eventLoop()){
+        exit(0);
+    }
+}
