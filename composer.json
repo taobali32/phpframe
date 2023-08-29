@@ -1,0 +1,26 @@
+{
+    "name": "jtar/socket",
+    "type": "library",
+    "description": "The socket library.",
+    "keywords": [
+        "jtar"
+    ],
+    "license": "MIT",
+    "require": {
+        "php": "^7.1",
+        "opis/closure": "^3.6"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true
+    },
+    "autoload": {
+        "psr-4": {
+            "Jtar\\": "src/",
+            "App\\": "app/"
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
