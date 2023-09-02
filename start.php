@@ -7,7 +7,7 @@ use Jtar\TcpConnection;
 
 require_once "vendor/autoload.php";
 
-$server = new Server("text://0.0.0.0:8888");
+$server = new Server("stream://0.0.0.0:8888");
 
 // tcp connect recevie/close
 // udp packet /close

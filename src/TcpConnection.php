@@ -14,7 +14,7 @@ class TcpConnection
 
     public $_readBufferSize = 1024;
 
-    public $_recvBufferSize = 1024 * 100; // 当前连接接收缓冲区大小 100KB
+    public $_recvBufferSize = 1024 * 1000 * 10; // 当前连接接收缓冲区大小 10m
 
     public $_recvLen = 0; // 当前连接目前接收到的字节数大小
 
