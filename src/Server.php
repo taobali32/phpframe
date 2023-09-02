@@ -133,13 +133,16 @@ class Server
                     if ($fd === $this->_mainSocket) {
                         $this->accept();
                     } else {
+
+                        if (isset(static::$_connections[(int)$fd])) {
                             /**
                              * @var TcpConnection $connection
                              */
-                        if (isset(static::$_connections[(int)$fd])) {
-
                             $connection = static::$_connections[(int)$fd];
-                            $connection->recv4socket();
+
+                            if ($connection->isConnected()) {
+                                $connection->recv4socket();
+                            }
                         }
                     }
                 }
@@ -147,13 +150,17 @@ class Server
 
             if ($writes){
                 foreach ($writes as $fd){
-                    /**
-                     * @var TcpConnection $connection
-                     */
-                    
+
                     if (isset(static::$_connections[(int)$fd])){
+
+                        /**
+                         * @var TcpConnection $connection
+                         */
                         $connection = static::$_connections[(int)$fd];
-                        $connection->write2socket();
+
+                        if ($connection->isConnected()){
+                            $connection->write2socket();
+                        }
                     }
                 }
             }
@@ -218,6 +225,7 @@ class Server
 
             if (is_resource($connfd)){
                 fclose($connfd);
+                //
             }
         }
     }

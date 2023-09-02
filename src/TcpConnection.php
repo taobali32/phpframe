@@ -35,6 +35,19 @@ class TcpConnection
 
     const HEART_TIME = 20;
 
+
+    const STATUS_CLOSE = 10;
+    const STATUS_CONNECT = 11;
+    public $_status;
+
+
+    public function isConnected(): bool
+    {
+        return  $this->_status == self::STATUS_CONNECT && is_resource($this->_connfd);
+    }
+
+
+
     public function resetHeartTime(){
         $this->_heartTime = time();
     }
@@ -59,6 +72,8 @@ class TcpConnection
         $this->_protocol = new Stream();
 
         $this->_heartTime = time();
+
+        $this->_status = self::STATUS_CONNECT;
     }
 
     public function connfd(){

@@ -7,7 +7,7 @@ use Jtar\Protocols\Stream;
 class Client
 {
 
-    public $_mainClient;
+    public $_mainClient = null;
     public $_events = [];
     private $_readBufferSize = 1024 * 100;
     public $_recvBufferSize = 1024 * 100;
@@ -36,9 +36,17 @@ class Client
     public $_sendMsgNum = 0;
 
 
+    const STATUS_CLOSE = 10;
+    const STATUS_CONNECT = 11;
+    public $_status;
+
+
     public function on($eventName,$eventCall){
         $this->_events[$eventName] = $eventCall;
     }
+
+
+
 
     public function onSendWrite(){
         ++$this->_sendNum;
@@ -67,7 +75,7 @@ class Client
         if (is_resource($this->_mainClient)){
             $this->runEventCallBack("connect", [$this]);
 
-//            $this->eventLoop();
+            $this->_status = self::STATUS_CONNECT;
         }else{
             $this->runEventCallBack("error", [$this, $errno, $errstr]);
             exit(0);
@@ -145,29 +153,37 @@ class Client
 
     public function onClose(){
         fclose($this->_mainClient);
-        
+
+        $this->_status = self::STATUS_CLOSE;
         $this->runEventCallBack("close",[$this]);
+
+
+        $this->_mainClient = null;
     }
+
+
 
 
     public function recv4socket()
     {
-        //  TODO 如果数据间断发送？ 第一次读了1kb，第二次读了2kb...
-        $data = fread($this->_mainClient, $this->_readBufferSize);
+        if ($this->isConnected()){
+            $data = fread($this->_mainClient, $this->_readBufferSize);
 
-        //  对端关闭了
-        if ($data === '' || $data == false){
-            if (feof($this->_mainClient) || !is_resource($this->_mainClient)){
-                $this->onClose();
+            //  对端关闭了
+            if ($data === '' || $data == false){
+                if (feof($this->_mainClient) || !is_resource($this->_mainClient)){
+                    $this->onClose();
+                }
+            }else{
+                $this->_recvBuffer .= $data;
+                $this->_recvLen += strlen($data);
             }
-        }else{
-            $this->_recvBuffer .= $data;
-            $this->_recvLen += strlen($data);
+
+            if ($this->_recvLen > 0){
+                $this->handleMessage();
+            }
         }
 
-        if ($this->_recvLen > 0){
-            $this->handleMessage();
-        }
     }
 
     public function handleMessage()
@@ -189,9 +205,15 @@ class Client
     }
 
 
+    public function isConnected(): bool
+    {
+        return  $this->_status == self::STATUS_CONNECT  && is_resource($this->_mainClient);
+    }
+
+
     public function write2socket()
     {
-        if ($this->needWrite()){
+        if ($this->needWrite() && $this->isConnected()){
 
             $writeLen = fwrite($this->_mainClient,$this->_sendBuffer, $this->_sendLen);
 
