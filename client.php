@@ -2,6 +2,7 @@
 require_once "vendor/autoload.php";
 
 $clientNum = $argv['1'];
+ini_set("memory_limit","2048M");
 
 
 $clients = [];
@@ -10,8 +11,7 @@ for ($i = 0; $i < $clientNum;$i++){
     $clients[] = $client = new \Jtar\Client("tcp://127.0.0.1:8888");
 
     $client->on("connect",function (\Jtar\Client $client){
-
-//        $client->write2socket("hello");
+        fprintf(STDOUT,"socket<%d> connect success!\r\n",(int)$client->clientFd());
     });
 
     $client->on("close",function (\Jtar\Client $client){
@@ -25,7 +25,7 @@ for ($i = 0; $i < $clientNum;$i++){
 
     $client->on("receive",function (\Jtar\Client $client,$msg){
 
-        fprintf(STDOUT, "client receive:%s\n", $msg);
+//        fprintf(STDOUT, "client receive:%s\n", $msg);
 
 //        $client->write2socket("world");
     });
@@ -33,8 +33,6 @@ for ($i = 0; $i < $clientNum;$i++){
     $client->start();
 }
 
-
-//
 $pid = pcntl_fork();
 if ($pid==0){
 
@@ -53,7 +51,6 @@ if ($pid==0){
                 }
             }
         }
-
     }
 
     exit(0);

@@ -50,7 +50,8 @@ class Server
         $this->_local_socket = "tcp:" . $ip . ":" . $port;
     }
 
-    public function statistics(){
+    public function statistics()
+    {
         $nowTime = time();
         $diffTime = $nowTime - $this->_startTime;
 
