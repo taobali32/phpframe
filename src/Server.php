@@ -6,6 +6,7 @@ namespace Jtar;
 namespace Jtar;
 
 use Jtar\Protocols\Stream;
+use Jtar\Protocols\Text;
 
 class Server
 {
@@ -22,7 +23,7 @@ class Server
 
     public $_protocols = [
         'stream'    =>  Stream::class,
-        "text"      =>  "",
+        "text"      =>  Text::class,
         "ws"        =>  "",
         "http"      =>  "",
         "mqtt"      =>  ""
@@ -42,6 +43,7 @@ class Server
     {
         list($protocol,$ip, $port) = explode(":", $local_socket);
         if ( isset($this->_protocols[$protocol])){
+            
             $this->_protocol = new $this->_protocols[$protocol]();
         }
 
