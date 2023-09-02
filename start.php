@@ -5,7 +5,7 @@ use Jtar\TcpConnection;
 
 require_once "vendor/autoload.php";
 
-$server = new Server("stream://0.0.0.0:8888");
+$server = new Server("tcp://0.0.0.0:8888");
 
 // tcp connect recevie/close
 // udp packet /close
@@ -29,11 +29,9 @@ $server->on("close", function (Server $server, $connfd, TcpConnection $connectio
     fprintf(STDOUT, "有客户端关闭了:%d\r\n",(int)$connfd);
 });
 
-
 // 缓冲区满了
 $server->on("receiveBufferFull", function (Server $server,TcpConnection $connection){
     fprintf(STDOUT, "接收缓冲区已满\r\n");
-
 });
 
 $server->start();

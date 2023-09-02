@@ -31,12 +31,34 @@ class TcpConnection
 
     public $_protocol;
 
+    public $_heartTime = 0;
+
+    const HEART_TIME = 20;
+
+    public function resetHeartTime(){
+        $this->_heartTime = time();
+    }
+
+    public function checkHeartTime(){
+        $now = time();
+
+        if ($now - $this->_heartTime >= self::HEART_TIME){
+
+            fprintf(STDOUT, "心跳时间已经超出:%d\n", $now - $this->_heartTime);
+            return true;
+        }
+
+        return false;
+    }
+
     public function __construct($connfd,$clientIp,$server){
         $this->_connfd = $connfd;
         $this->_clientIp = $clientIp;
         $this->_server = $server;
 
         $this->_protocol = new Stream();
+
+        $this->_heartTime = time();
     }
 
     public function connfd(){
@@ -80,6 +102,7 @@ class TcpConnection
         }
 
         if ($this->_recvLen > 0){
+
             $this->handleMessage();
         }
     }
@@ -102,6 +125,7 @@ class TcpConnection
                 $this->_recvBufferFull--;
 
                 $this->_server->onMsg();
+                $this->resetHeartTime();
 
                 $this->_recvLen -= $msgLen;
 
@@ -115,6 +139,9 @@ class TcpConnection
             $this->_recvBuffer = "";
             $this->_recvLen = 0;
             $this->_recvBufferFull = 0;
+            $this->_server->onMsg();
+            $this->resetHeartTime();
+
         }
     }
 

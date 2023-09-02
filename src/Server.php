@@ -102,6 +102,8 @@ class Server
 
             $this->statistics();
 
+            $this->checkHeartTime();
+
             if (!empty(static::$_connections)) {
                 foreach (static::$_connections as $connection) {
                     $sockfd = $connection->connfd();
@@ -161,6 +163,19 @@ class Server
 
     public function onClientJoin(){
         ++static::$_clientNum;
+    }
+
+    public function checkHeartTime(){
+        foreach (static::$_connections as $idx => $connection){
+
+            if ($connection->checkHeartTime()){
+                $connfd = $connection->connfd();
+
+                // 超出心跳时间,关闭掉这个客户端
+                $this->removeConnection($connfd);
+                $this->runEventCallBack('close',[(int)$connfd, $connection]);
+            }
+        }
     }
 
     public function onRecv(){
