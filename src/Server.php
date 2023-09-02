@@ -117,7 +117,6 @@ class Server
 //            print_r($reads);
 //            print_r($writes);
 
-
             //  函数是 PHP 中用于多路复用的一个函数 它可以检查多个文件流（套接字、文件等）是否可读、可写或出现异常，并在有可读、可写或异常情况发生时返回相应的文件流。
             $ret = stream_select($reads, $writes, $expts, null);
 
@@ -126,17 +125,33 @@ class Server
                 break;
             }
 
-            foreach ($reads as $fd) {
-                // 如果是监听socket
-                if ($fd === $this->_mainSocket) {
-                    $this->accept();
-                } else {
-                    if (isset( static::$_connections[(int)$fd])){
-                        /**
-                         * @var TcpConnection $connection
-                         */
+            if ($reads){
+                foreach ($reads as $fd) {
+                    // 如果是监听socket
+                    if ($fd === $this->_mainSocket) {
+                        $this->accept();
+                    } else {
+                            /**
+                             * @var TcpConnection $connection
+                             */
+                        if (isset(static::$_connections[(int)$fd])) {
+
+                            $connection = static::$_connections[(int)$fd];
+                            $connection->recv4socket();
+                        }
+                    }
+                }
+            }
+
+            if ($writes){
+                foreach ($writes as $fd){
+                    /**
+                     * @var TcpConnection $connection
+                     */
+                    
+                    if (isset(static::$_connections[(int)$fd])){
                         $connection = static::$_connections[(int)$fd];
-                        $connection->recv4socket();
+                        $connection->write2socket();
                     }
                 }
             }

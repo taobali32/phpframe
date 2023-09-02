@@ -22,8 +22,30 @@ class Client
     public $_local_socket;
 
 
+    public $_sendLen = 0;
+    public $_sendBuffer = '';
+    public $_sendBufferSize = 1024 * 100;
+
+    public $_sendBufferFull = 0;
+
+
+    //  执行发送函数执行了几次
+    public $_sendNum = 0;
+
+    //  发送了多少条消息
+    public $_sendMsgNum = 0;
+
+
     public function on($eventName,$eventCall){
         $this->_events[$eventName] = $eventCall;
+    }
+
+    public function onSendWrite(){
+        ++$this->_sendNum;
+    }
+
+    public function onSendMsgNum(){
+        ++$this->_sendMsgNum;
     }
 
     
@@ -63,12 +85,38 @@ class Client
         return $this->_mainClient;
     }
 
+    public function send($data){
+        $len = strlen($data);
+
+        if ($this->_sendLen +$len < $this->_sendBufferSize){
+            $bin = $this->_protocol->encode($data);
+
+            $this->_sendBuffer .= $bin[1];
+            $this->_sendLen += $bin[0];
+
+            if ($this->_sendLen >= $this->_sendBufferSize){
+                $this->_sendBufferFull++;
+            }
+
+            $this->onSendMsgNum();
+        }
+    }
+
+
+    public function needWrite()
+    {
+        return $this->_sendLen > 0;
+    }
+
 
     public function eventLoop()
     {
         if (is_resource($this->_mainClient)){
             $readFds = [$this->_mainClient];
+
             $writeFds = [$this->_mainClient];
+
+
             $exptFds = [$this->_mainClient];
 
             $ret = stream_select($readFds, $writeFds, $exptFds, NULL);
@@ -79,6 +127,11 @@ class Client
 
             if ($readFds){
                 $this->recv4socket();
+            }
+
+            //  有可写事件发生
+            if ($writeFds){
+                $this->write2socket();
             }
 
             return true;
@@ -135,11 +188,26 @@ class Client
     }
 
 
-    public function write2socket($data){
-        $bin = $this->_protocol->encode($data);
+    public function write2socket()
+    {
+        if ($this->needWrite()){
 
-        $writeLen = fwrite($this->_mainClient,$bin[1],$bin[0]);
+            $writeLen = fwrite($this->_mainClient,$this->_sendBuffer, $this->_sendLen);
 
-//        fprintf(STDOUT, "write:%d size\n", $writeLen);
+            $this->onSendWrite();
+
+            if ($writeLen == $this->_sendLen){
+
+                $this->_sendBuffer = '';
+                $this->_sendLen = 0;
+                return true;
+            }elseif ($writeLen > 0){
+                $this->_sendLen -= $writeLen;
+                $this->_sendBuffer = substr($this->_sendBuffer, $writeLen);
+                return true;
+            }else{
+                $this->onClose();
+            }
+        }
     }
 }

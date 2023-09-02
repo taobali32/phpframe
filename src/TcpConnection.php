@@ -145,27 +145,78 @@ class TcpConnection
             }
         }
 
+        // 等到可写事件的时候发送,不写在这里了
+
         // 发送数据的时候
         //  1.网络不好只发送一半
         //  2.能完整的发送
         //  3. 对端关了
-        $writeLen = fwrite($this->_connfd,$this->_sendBuffer,$this->_sendLen);
-        if ($writeLen == $this->_sendLen){
+//        $writeLen = fwrite($this->_connfd,$this->_sendBuffer,$this->_sendLen);
+//        if ($writeLen == $this->_sendLen){
+//
+//            // 发送完成后
+//            $this->_sendBuffer = '';
+//            $this->_sendLen = 0;
+//            $this->_sendBufferFull = 0;
+//            return true;
+//        }elseif ($writeLen > 0){
+//            $this->_sendBuffer = substr($this->_sendBuffer,$writeLen);
+//
+//            $this->_sendLen = $writeLen;
+//            $this->_sendBufferFull--;
+//            // TODO 数据发一半 还没发完!
+//        }else{
+//            // 对端关闭了!
+//            $this->_server->removeConnection($this->_connfd);
+//        }
+    }
 
-            // 发送完成后
-            $this->_sendBuffer = '';
-            $this->_sendLen = 0;
-            $this->_sendBufferFull = 0;
-            return true;
-        }elseif ($writeLen > 0){
-            $this->_sendBuffer = substr($this->_sendBuffer,$writeLen);
 
-            $this->_sendLen = $writeLen;
-            $this->_sendBufferFull--;
-            // TODO 数据发一半 还没发完!
-        }else{
-            // 对端关闭了!
-            $this->_server->removeConnection($this->_connfd);
+    public function needWrite()
+    {
+        return $this->_sendLen > 0;
+    }
+
+
+    public function write2socket()
+    {
+        if ($this->needWrite()) {
+
+//            $writeLen = fwrite($this->_connfd,$this->_sendBuffer,$this->_sendLen);
+//        if ($writeLen == $this->_sendLen){
+//
+//            // 发送完成后
+//            $this->_sendBuffer = '';
+//            $this->_sendLen = 0;
+//            $this->_sendBufferFull = 0;
+//            return true;
+//        }elseif ($writeLen > 0){
+//            $this->_sendBuffer = substr($this->_sendBuffer,$writeLen);
+//
+//            $this->_sendLen = $writeLen;
+//            $this->_sendBufferFull--;
+//        }else{
+//            // 对端关闭了!
+//            $this->_server->removeConnection($this->_connfd);
+//        }
+
+            $writeLen = fwrite($this->_connfd, $this->_sendBuffer, $this->_sendLen);
+//            fprintf(STDOUT, "write:%d size\n", $writeLen);
+
+            if ($writeLen == $this->_sendLen) {
+                $this->_sendBuffer = '';
+                $this->_sendLen = 0;
+                $this->_sendBufferFull = 0;
+                return true;
+            } elseif ($writeLen > 0) {
+                $this->_sendBuffer = substr($this->_sendBuffer,$writeLen);
+                $this->_sendLen = $writeLen;
+                $this->_sendBufferFull--;
+                return true;
+            } else {
+
+                $this->_server->removeConnection($this->_connfd);
+            }
         }
     }
 }

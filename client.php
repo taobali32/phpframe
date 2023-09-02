@@ -4,6 +4,7 @@ require_once "vendor/autoload.php";
 $clientNum = $argv['1'];
 ini_set("memory_limit","2048M");
 
+$startTime = time();
 
 $clients = [];
 
@@ -33,25 +34,57 @@ for ($i = 0; $i < $clientNum;$i++){
     $client->start();
 }
 
-$pid = pcntl_fork();
-if ($pid==0){
+//$pid = pcntl_fork();
+//if ($pid==0){
+//
+//    while (1){
+//        for ($i=0;$i<$clientNum;$i++){
+//            /**
+//             * @var \Jtar\Client $client
+//             */
+//            $client = $clients[$i];
+//
+//            $client->send("hello,i am client");
+//        }
+//    }
+//}
 
-    while (1){
-        for ($i=0;$i<$clientNum;$i++){
-            /**
-             * @var \Jtar\Client $client
-             */
-            $client = $clients[$i];
 
-            if (is_resource($client->clientFd())){
-                $client->write2socket("hello,i am client");
+while (1){
 
-                if (!$client->eventLoop()){
-                    break;
-                }
-            }
+    $now = time();
+    $diff = $now - $startTime;
+
+     if ($diff >= 1){
+
+        $sendNum = 0;
+        $sendMsgNum = 0;
+
+        $startTime = $now;
+        foreach ($clients as $client){
+            $sendNum += $client->_sendNum;
+            $sendMsgNum += $client->_sendMsgNum;
+        }
+
+        fprintf(STDOUT, "time:%s--<clientNum:%d>--<sendNum:%d>--<msgNum:%d>\r\n",$diff,$clientNum, $sendNum, $sendMsgNum);
+
+        foreach ($clients as $client){
+            $client->_sendNum = 0;
+            $client->_sendMsgNum = 0;
         }
     }
 
-    exit(0);
+    for ($i=0;$i<$clientNum;$i++){
+        /**
+         * @var \Jtar\Client $client
+         */
+        $client = $clients[$i];
+
+        if (!$client->eventLoop()){
+            break;
+        }
+
+        $client->send("hello,i am client");
+
+    }
 }
