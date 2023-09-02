@@ -1,11 +1,11 @@
 <?php
+ini_set("memory_limit","2048M");
 
 use Jtar\Client;
 
 require_once "vendor/autoload.php";
 
 $clientNum = $argv['1'];
-ini_set("memory_limit","2048M");
 
 $startTime = time();
 
@@ -21,7 +21,6 @@ for ($i = 0; $i < $clientNum;$i++){
     $client->on("close",function (Client $client){
         fprintf(STDOUT, "服务器断开我的链接了\n");
     });
-
 
     $client->on("error",function (Client $client, $errno, $errstr){
         fprintf(STDOUT, "errno:%d,errstr=%s\n", $errno,$errstr);
@@ -94,6 +93,9 @@ while (1){
             break;
         }
 
-        $client->send("hello,i am client");
+
+        for ($j = 0; $j < 10; $j++){
+            $client->send("hello,i am client");
+        }
     }
 }

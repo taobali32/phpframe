@@ -1,4 +1,6 @@
 <?php
+ini_set("memory_limit","2048M");
+
 
 use Jtar\Server;
 use Jtar\TcpConnection;
