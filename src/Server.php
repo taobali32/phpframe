@@ -163,7 +163,6 @@ class Server
         ++static::$_clientNum;
     }
 
-
     public function onRecv(){
         ++static::$_recvNum;
     }

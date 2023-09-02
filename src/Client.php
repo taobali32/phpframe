@@ -99,6 +99,8 @@ class Client
             }
 
             $this->onSendMsgNum();
+        }else{
+            $this->runEventCallBack("receiveBufferFull",[$this]);
         }
     }
 
@@ -115,7 +117,6 @@ class Client
             $readFds = [$this->_mainClient];
 
             $writeFds = [$this->_mainClient];
-
 
             $exptFds = [$this->_mainClient];
 
