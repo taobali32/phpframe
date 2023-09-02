@@ -65,7 +65,14 @@ class TcpConnection
     }
 
     public function __construct($connfd,$clientIp,$server){
+
         $this->_connfd = $connfd;
+        stream_set_blocking($this->_connfd,0);
+
+        // 设置为0,无缓冲区,写操作直接返回了
+        stream_set_write_buffer($this->_connfd, 0);
+        stream_set_blocking($this->_connfd,0);
+
         $this->_clientIp = $clientIp;
         $this->_server = $server;
 

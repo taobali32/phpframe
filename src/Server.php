@@ -82,6 +82,8 @@ class Server
         //  此函数仅创建套接字，并使用 stream_socket_accept() 开始接受连接。
         $this->_mainSocket = stream_socket_server($this->_local_socket, $errno, $errstr, $flag, $content);
 
+        // 设置为非阻塞IO
+        stream_set_blocking($this->_mainSocket,0);
         if (!is_resource($this->_mainSocket)) {
             fprintf(STDOUT, "server create fail:%s\n", $errstr);
             exit(0);
@@ -122,7 +124,7 @@ class Server
 //            print_r($writes);
 
             //  函数是 PHP 中用于多路复用的一个函数 它可以检查多个文件流（套接字、文件等）是否可读、可写或出现异常，并在有可读、可写或异常情况发生时返回相应的文件流。
-            $ret = stream_select($reads, $writes, $expts, null);
+            $ret = stream_select($reads, $writes, $expts, 0,100);
 
             restore_error_handler();
             if ($ret === false) {
