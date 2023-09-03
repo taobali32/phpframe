@@ -9,7 +9,11 @@
     "require": {
         "php": "^7.1",
         "opis/closure": "^3.6",
-        "ext-pcntl": "*"
+        "ext-pcntl": "*",
+        "ext-event": "*",
+        "ext-sockets": "*",
+        "ext-posix": "*",
+        "ext-sysvmsg": "*"
     },
     "config": {
         "optimize-autoloader": true,

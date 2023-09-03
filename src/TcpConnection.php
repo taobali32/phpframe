@@ -2,6 +2,7 @@
 
 namespace Jtar;
 
+use Jtar\Event\Event;
 use Jtar\Protocols\Stream;
 
 class TcpConnection
@@ -64,8 +65,8 @@ class TcpConnection
         return false;
     }
 
-    public function __construct($connfd,$clientIp,$server){
-
+    public function __construct($connfd,$clientIp,$server)
+    {
         $this->_connfd = $connfd;
         stream_set_blocking($this->_connfd,0);
 
@@ -81,6 +82,10 @@ class TcpConnection
         $this->_heartTime = time();
 
         $this->_status = self::STATUS_CONNECT;
+
+        Server::$_eventLoop->add($connfd,Event::EVENT_READ,[$this,"recv4socket"]);
+
+//        $this->_server->_eventLoop->add();
     }
 
     public function connfd(){
@@ -110,17 +115,13 @@ class TcpConnection
             }else{
                 // 接收到的数据放在缓冲区
                 $this->_recvBuffer .= $data;
-
                 $this->_recvLen += strlen($data);
-
                 $this->_server->onRecv();
             }
 
         }else{
             $this->_recvBufferFull++;
-
             $this->_server->runEventCallBack("receiveBufferFull", [$this]);
-
         }
 
         if ($this->_recvLen > 0){
@@ -200,24 +201,27 @@ class TcpConnection
         //  1.网络不好只发送一半
         //  2.能完整的发送
         //  3. 对端关了
-//        $writeLen = fwrite($this->_connfd,$this->_sendBuffer,$this->_sendLen);
-//        if ($writeLen == $this->_sendLen){
-//
-//            // 发送完成后
-//            $this->_sendBuffer = '';
-//            $this->_sendLen = 0;
-//            $this->_sendBufferFull = 0;
-//            return true;
-//        }elseif ($writeLen > 0){
-//            $this->_sendBuffer = substr($this->_sendBuffer,$writeLen);
-//
-//            $this->_sendLen = $writeLen;
-//            $this->_sendBufferFull--;
-//            // TODO 数据发一半 还没发完!
-//        }else{
-//            // 对端关闭了!
-//            $this->_server->removeConnection($this->_connfd);
-//        }
+        $writeLen = fwrite($this->_connfd,$this->_sendBuffer,$this->_sendLen);
+        if ($writeLen == $this->_sendLen){
+
+            // 发送完成后
+            $this->_sendBuffer = '';
+            $this->_sendLen = 0;
+            $this->_sendBufferFull = 0;
+            return true;
+        }elseif ($writeLen > 0){
+            $this->_sendBuffer = substr($this->_sendBuffer,$writeLen);
+
+            $this->_sendLen = $writeLen;
+            $this->_sendBufferFull--;
+
+            // 没写完才添加到里面,你不能在构造函数里面把 读写都添加了, 这是epoll规定的..
+            Server::$_eventLoop->add($this->_connfd,Event::EVENT_WRITE,[$this,"write2socket"]);
+
+        }else{
+            // 对端关闭了!
+            $this->_server->removeConnection($this->_connfd);
+        }
     }
 
 
@@ -230,37 +234,23 @@ class TcpConnection
     public function write2socket()
     {
         if ($this->needWrite()) {
-
-//            $writeLen = fwrite($this->_connfd,$this->_sendBuffer,$this->_sendLen);
-//        if ($writeLen == $this->_sendLen){
-//
-//            // 发送完成后
-//            $this->_sendBuffer = '';
-//            $this->_sendLen = 0;
-//            $this->_sendBufferFull = 0;
-//            return true;
-//        }elseif ($writeLen > 0){
-//            $this->_sendBuffer = substr($this->_sendBuffer,$writeLen);
-//
-//            $this->_sendLen = $writeLen;
-//            $this->_sendBufferFull--;
-//        }else{
-//            // 对端关闭了!
-//            $this->_server->removeConnection($this->_connfd);
-//        }
-
             $writeLen = fwrite($this->_connfd, $this->_sendBuffer, $this->_sendLen);
-//            fprintf(STDOUT, "write:%d size\n", $writeLen);
 
             if ($writeLen == $this->_sendLen) {
                 $this->_sendBuffer = '';
                 $this->_sendLen = 0;
                 $this->_sendBufferFull = 0;
+
+                Server::$_eventLoop->del($this->_connfd,Event::EVENT_WRITE);
+
                 return true;
             } elseif ($writeLen > 0) {
                 $this->_sendBuffer = substr($this->_sendBuffer,$writeLen);
                 $this->_sendLen = $writeLen;
                 $this->_sendBufferFull--;
+
+//                Server::$_eventLoop->del($this->_connfd,Event::EVENT_WRITE);
+//
                 return true;
             } else {
 

@@ -1,13 +1,15 @@
 <?php
 ini_set("memory_limit","2048M");
-
+ini_set('display_errors',1);            //错误信息
+ini_set('display_startup_errors',1);    //php启动错误信息
+error_reporting(-1);                    //打印出所有的 错误信息
 
 use Jtar\Server;
 use Jtar\TcpConnection;
 
 require_once "vendor/autoload.php";
 
-$server = new Server("stream://0.0.0.0:8888");
+$server = new Server("tcp://0.0.0.0:8888");
 
 // tcp connect recevie/close
 // udp packet /close
@@ -22,7 +24,7 @@ $server->on("connect",function (Server $server, TcpConnection $connection){
 
 $server->on("receive", function (Server $server, $msg, TcpConnection $connection){
 //    fprintf(STDOUT, "有客户端发送数据了:%s\r\n",$msg);
-//    fprintf(STDOUT, "recv from client<%d>:%s\r\n",(int)$connection->_connfd,$msg);
+    fprintf(STDOUT, "recv from client<%d>:%s\r\n",(int)$connection->_connfd,$msg);
 
     $connection->send("server receive");
 });

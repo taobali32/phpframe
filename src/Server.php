@@ -5,6 +5,8 @@ namespace Jtar;
 
 namespace Jtar;
 
+use Jtar\Event\Epoll;
+use Jtar\Event\Event;
 use Jtar\Protocols\Stream;
 use Jtar\Protocols\Text;
 
@@ -20,6 +22,8 @@ class Server
 
 
     public $_protocol_layout;
+
+    static public $_eventLoop;
 
     public $_protocols = [
         'stream'    =>  Stream::class,
@@ -50,6 +54,8 @@ class Server
         $this->_startTime = time();
 
         $this->_local_socket = "tcp:" . $ip . ":" . $port;
+
+        static::$_eventLoop = new Epoll();
     }
 
     public function statistics()
@@ -93,8 +99,12 @@ class Server
     }
 
 
+    public function eventLoop(){
+        static::$_eventLoop->loop();
+    }
 
-    public function eventLoop()
+
+    public function loop()
     {
         $readFds = [$this->_mainSocket];
 
@@ -210,6 +220,8 @@ class Server
             static::$_connections[(int)$connfd] = $connection;
 
             $this->runEventCallBack('connect',[$connection]);
+
+            echo "接受到客户端连接\r\n";
         }
     }
 
@@ -229,13 +241,14 @@ class Server
 
             if (is_resource($connfd)){
                 fclose($connfd);
-                //
             }
         }
     }
 
     public function start(){
         $this->listen();
+
+        static::$_eventLoop->add($this->_mainSocket,Event::EVENT_READ,[$this,"accept"]);
         $this->eventLoop();
     }
 }

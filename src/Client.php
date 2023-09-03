@@ -46,8 +46,6 @@ class Client
     }
 
 
-
-
     public function onSendWrite(){
         ++$this->_sendNum;
     }
@@ -151,12 +149,12 @@ class Client
     }
 
 
-    public function onClose(){
+    public function onClose()
+    {
         fclose($this->_mainClient);
 
         $this->_status = self::STATUS_CLOSE;
         $this->runEventCallBack("close",[$this]);
-
 
         $this->_mainClient = null;
     }
