@@ -26,7 +26,9 @@ $server->on("receive", function (Server $server, $msg, TcpConnection $connection
 //    fprintf(STDOUT, "有客户端发送数据了:%s\r\n",$msg);
     fprintf(STDOUT, "recv from client<%d>:%s\r\n",(int)$connection->_connfd,$msg);
 
-    $connection->send("server receive");
+    $data = file_get_contents("./text.txt");
+    $connection->send($data);
+
 });
 
 $server->on("close", function (Server $server, $connfd, TcpConnection $connection){

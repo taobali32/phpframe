@@ -34,7 +34,7 @@ if ($pid==0){
 else{
 
     $eventBase = new \EventBase();
-//I/O事件
+    //I/O事件
     $event = new \Event($eventBase,$sockfd[0],\Event::READ|\Event::PERSIST,function($fd,$what,$arg){
 
         echo fread($fd,128);

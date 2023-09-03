@@ -68,7 +68,6 @@ class Epoll implements Event
                   unset($this->_allEvents[(int)$fd]);
               }
               return true;
-              break;
 
             case self::EVENT_WRITE:
                 if (isset( $this->_allEvents[(int)$fd][self::EVENT_WRITE])){
@@ -81,9 +80,8 @@ class Epoll implements Event
                     unset($this->_allEvents[(int)$fd]);
                 }
 
-                return true;
+            return true;
 
-            break;
 
             case self::EVENT_SIGNAL:
                 if (isset( $this->_signalEvents[(int)$fd])){
@@ -91,8 +89,8 @@ class Epoll implements Event
                     $event->del();
                     unset($this->_signalEvents[(int)$fd]);
                 }
-                break;
-
+                return  true;
+            break;
         }
     }
 

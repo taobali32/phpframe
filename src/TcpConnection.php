@@ -26,7 +26,8 @@ class TcpConnection
 
     public $_sendLen = 0;
     public $_sendBuffer = '';
-    public $_sendBufferSize = 1024 * 100;
+    public $_sendBufferSize = 1024*1000*100;
+
 
     public $_sendBufferFull = 0;
 
@@ -37,7 +38,7 @@ class TcpConnection
     const HEART_TIME = 20;
 
 
-    const STATUS_CLOSE = 10;
+    const STATUS_CLOSED = 10;
     const STATUS_CONNECT = 11;
     public $_status;
 
@@ -85,7 +86,7 @@ class TcpConnection
 
         Server::$_eventLoop->add($connfd,Event::EVENT_READ,[$this,"recv4socket"]);
 
-//        $this->_server->_eventLoop->add();
+        // 这里不要上来就直接监听可写时间,不然一直写不会停了,哪里需要就哪里写!!
     }
 
     public function connfd(){
@@ -107,10 +108,7 @@ class TcpConnection
 
                 // 对端关闭
                 if (feof($this->_connfd) || !is_resource($this->_connfd)){
-
-                    $server->runEventCallBack('close',[(int)$this->_connfd, $this]);
-
-                    $server->removeConnection($this->_connfd);
+                    $this->Close();
                 }
             }else{
                 // 接收到的数据放在缓冲区
@@ -164,7 +162,6 @@ class TcpConnection
             $this->_recvBufferFull = 0;
             $this->_server->onMsg();
             $this->resetHeartTime();
-
         }
     }
 
@@ -201,7 +198,9 @@ class TcpConnection
         //  1.网络不好只发送一半
         //  2.能完整的发送
         //  3. 对端关了
+
         $writeLen = fwrite($this->_connfd,$this->_sendBuffer,$this->_sendLen);
+
         if ($writeLen == $this->_sendLen){
 
             // 发送完成后
@@ -210,6 +209,7 @@ class TcpConnection
             $this->_sendBufferFull = 0;
             return true;
         }elseif ($writeLen > 0){
+            
             $this->_sendBuffer = substr($this->_sendBuffer,$writeLen);
 
             $this->_sendLen = $writeLen;
@@ -218,10 +218,12 @@ class TcpConnection
             // 没写完才添加到里面,你不能在构造函数里面把 读写都添加了, 这是epoll规定的..
             Server::$_eventLoop->add($this->_connfd,Event::EVENT_WRITE,[$this,"write2socket"]);
 
+            return true;
         }else{
-            // 对端关闭了!
-            $this->_server->removeConnection($this->_connfd);
+            $this->Close();
         }
+
+        return false;
     }
 
 
@@ -234,28 +236,70 @@ class TcpConnection
     public function write2socket()
     {
         if ($this->needWrite()) {
+
+            // 除掉发送警告
+            set_error_handler(function () {
+            });
             $writeLen = fwrite($this->_connfd, $this->_sendBuffer, $this->_sendLen);
 
+            restore_error_handler();
             if ($writeLen == $this->_sendLen) {
                 $this->_sendBuffer = '';
                 $this->_sendLen = 0;
                 $this->_sendBufferFull = 0;
 
+                var_dump("移除了_eventLoop->de");
                 Server::$_eventLoop->del($this->_connfd,Event::EVENT_WRITE);
 
                 return true;
             } elseif ($writeLen > 0) {
+
+                var_dump("第一次没发送完,继续发送");
                 $this->_sendBuffer = substr($this->_sendBuffer,$writeLen);
                 $this->_sendLen = $writeLen;
                 $this->_sendBufferFull--;
 
+                //
 //                Server::$_eventLoop->del($this->_connfd,Event::EVENT_WRITE);
-//
+                //
+                //
                 return true;
             } else {
 
-                $this->_server->removeConnection($this->_connfd);
+                if (feof($this->_connfd)||!is_resource($this->_connfd)){
+
+                    $this->Close();
+                }
             }
         }
+    }
+
+
+    public function Close()
+    {
+//        $this->_server->echoLog("移除<socket:%d>连接\r\n",(int)$this->_sockfd);
+        //print_r(debug_backtrace());
+        Server::$_eventLoop->del($this->_connfd,Event::EVENT_READ);
+        Server::$_eventLoop->del($this->_connfd,Event::EVENT_WRITE);
+
+        if (is_resource($this->_connfd)){
+            fclose($this->_connfd);
+        }
+
+        /** @var Server $server */
+        $server = $this->_server;
+        $server->runEventCallBack("close",[$this->_connfd,$this]);
+        $server->removeConnection($this->_connfd);
+        $this->_status = self::STATUS_CLOSED;
+        $this->_connfd=null;
+        $this->_sendLen=0;
+        $this->_sendBuffer='';
+        $this->_sendBufferFull=0;
+        $this->_sendBufferSize=0;
+
+        $this->_recvLen=0;
+        $this->_recvBuffer='';
+        $this->_recvBufferFull=0;
+        $this->_recvBufferSize=0;
     }
 }
