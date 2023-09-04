@@ -5,7 +5,6 @@ namespace Jtar\Event;
 class Select implements Event
 {
     public static $_timerId = 0;
-    public $_eventBase;
 
     public $_allEvents = [];
 
@@ -18,7 +17,7 @@ class Select implements Event
 
     public $_exptFds = [];
 
-    public $_timeOut = 100000000; // 100秒
+    public $_timeOut = 0; // 100秒
 
     public function __construct(){
     }
@@ -30,7 +29,6 @@ class Select implements Event
                 $fdKey = (int)$fd;
                 $this->_readFds[$fdKey] = $fd;
                 $this->_allEvents[$fdKey][self::EVENT_READ] = [$func,[$fd,$flag,$arg]];
-
                 return true;
 
             case self::EVENT_WRITE:
@@ -190,7 +188,7 @@ class Select implements Event
         }
     }
 
-    public function loop()
+    public function loop(): bool
     {
             $reads = $this->_readFds;
             $writes = $this->_writeFds;
@@ -206,14 +204,15 @@ class Select implements Event
             $ret = stream_select($reads, $writes, $expts, 0,$this->_timeOut);
 
             restore_error_handler();
+
             if ($ret === false) {
                 return false;
             }
+         
 
             if (!empty($this->_timers)) {
                 $this->timerCallBack();
             }
-
 
             if ($reads){
                 foreach ($reads as $fd) {

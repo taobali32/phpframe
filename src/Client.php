@@ -171,7 +171,6 @@ class Client
         }
 
 
-
         return false;
     }
 
@@ -202,7 +201,15 @@ class Client
 
 
     public function loop(){
-       return static::$_eventLoop->loop();
+
+        try {
+            /**
+             * @see Select@loop
+             */
+            return static::$_eventLoop->loop();
+        }catch (\Exception $exception){
+        }
+
     }
 
 //    public function eventLoop()

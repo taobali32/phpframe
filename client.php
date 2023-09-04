@@ -30,7 +30,7 @@ for ($i = 0; $i < $clientNum;$i++){
 
     $client->on("receive",function (Client $client, $msg){
 
-//        fprintf(STDOUT, "client receive:%s\n", $msg);
+        fprintf(STDOUT, "client receive:%s\n", $msg);
 
 //        $client->write2socket("world");
     });
@@ -44,22 +44,6 @@ for ($i = 0; $i < $clientNum;$i++){
 
     $client->start();
 }
-
-//$pid = pcntl_fork();
-//if ($pid==0){
-//
-//    while (1){
-//        for ($i=0;$i<$clientNum;$i++){
-//            /**
-//             * @var \Jtar\Client $client
-//             */
-//            $client = $clients[$i];
-//
-//            $client->send("hello,i am client");
-//        }
-//    }
-//}
-
 
 while (1){
 
@@ -93,15 +77,15 @@ while (1){
          */
         $client = $clients[$i];
 
-        for ($j=0;$j<$sendMessageNum;$j++){
-            $client->send("hello,i am client".time());
-        }
 
-        //一直等读事件产生
+//        //一直等读事件产生
         if (!$client->loop()) {
             break;
         }
 
+        for ($j=0;$j<1;$j++){
+            $client->send("hello,i am client".time());
+        }
+
     }
-    sleep(1);
 }

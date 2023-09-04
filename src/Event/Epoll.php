@@ -87,20 +87,18 @@ class Epoll implements Event
 
             case self::EVENT_TIMER:
             case self::EVENT_TIMER_ONCE:
-                //fd 现在是当成这个微妙
                 $timerId = static::$_timerId;
-                $runTime = microtime(true)+$fd;
-                $param = [$func,$runTime,$flag,$timerId,$fd,$args];
-
-                $this->_timers[$timerId] = $param;
-
-                $selectTime = $fd*1000000;//这里是转换为秒 百万级微妙
-                if ($this->_timeout>=$selectTime){
-                    $this->_timeout = $selectTime;
+                $param = [$func,$flag,$timerId,$args];
+                $event = new \Event($this->_eventBase,-1,\Event::TIMEOUT|\Event::PERSIST,[$this,"timerCallBack"],$param);
+                if (!$event||!$event->add($fd)){
+                    //echo "定时事件添加失败\r\n";
+                    return false;
                 }
+                //echo "定时事件添加成功\r\n";
+                $this->_timers[$timerId][$flag] = $event;
                 ++static::$_timerId;
                 return $timerId;
-            break;
+                break;
         }
     }
 
