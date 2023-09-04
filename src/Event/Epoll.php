@@ -4,15 +4,47 @@ namespace Jtar\Event;
 
 class Epoll implements Event
 {
+    public static $_timerId = 0;
     public $_eventBase;
 
     public $_allEvents = [];
 
     public $_signalEvents = [];
+    /**
+     * @var mixed
+     */
+    public $_timers = [];
 
 
     public function __construct(){
         $this->_eventBase = new \EventBase();
+    }
+
+    public function timerCallBack($fd,$waht,$args){
+//        $param = [$func,$flag,$timerId,$args];
+
+//            static::$_eventLoop->add(2,Event::EVENT_TIMER_ONCE,[$this,"checkHeartTime"],[]);
+//            public function add($fd, $flag, $func, $args = [])
+//            $event = new \Event($this->_eventBase, -1, \Event::TIMEOUT|\Event::PERSIST, [$this,"timerCallBack"],$param);
+//        $param = [$func,$flag,static::$_timerId,$args];
+
+        $func = $args[0];
+
+        $flag = $args[1];
+
+        $timerId = $args[2];
+
+        $userArg = $args[3];
+        
+
+        if ($flag == Event::EVENT_TIMER_ONCE){
+            $event = $this->_timers[$timerId][$flag];
+            $event->del();
+
+            unset($this->_timers[$timerId][$flag]);
+        }
+
+        call_user_func_array($func, $userArg);
     }
 
     public function add($fd, $flag, $func, $args = [])
@@ -51,6 +83,28 @@ class Epoll implements Event
 
                 $this->_signalEvents[(int)$fd]= $event;
                 return true;
+
+
+            case self::EVENT_TIMER:
+            case self::EVENT_TIMER_ONCE:
+
+//            static::$_eventLoop->add(2,Event::EVENT_TIMER_ONCE,[$this,"checkHeartTime"],[]);
+//            public function add($fd, $flag, $func, $args = [])
+//            $event = new \Event($this->_eventBase, -1, \Event::TIMEOUT|\Event::PERSIST, [$this,"timerCallBack"],$param);
+
+                $timerId = static::$_timerId;
+                $param = [$func,$flag,$timerId,$args];
+
+                $event = new \Event($this->_eventBase, -1, \Event::TIMEOUT|\Event::PERSIST, [$this,"timerCallBack"],$param);
+
+                if(!$event || !$event->add($fd)){
+                    return  false;
+                }
+
+                $this->_timers[$timerId][$flag] = $event;
+
+                ++static::$_timerId;
+                return $timerId;
         }
     }
 
@@ -91,6 +145,15 @@ class Epoll implements Event
                 }
                 return  true;
             break;
+
+            case self::EVENT_TIMER:
+            case self::EVENT_TIMER_ONCE:
+                if (isset($this->_timers[$fd][$flag])){
+                    unset($this->_timers[$fd][$flag]);
+                }
+
+            break;
+
         }
     }
 

@@ -56,13 +56,13 @@ class Server
 
         $this->_local_socket = "tcp:" . $ip . ":" . $port;
 
-        static::$_eventLoop = new Select();
+//        static::$_eventLoop = new Select();
 
-//        if (DIRECTORY_SEPARATOR == "/"){
-//            static::$_eventLoop = new Epoll();
-//        }else{
-//            static::$_eventLoop = new Select();
-//        }
+        if (DIRECTORY_SEPARATOR == "/"){
+            static::$_eventLoop = new Epoll();
+        }else{
+            static::$_eventLoop = new Select();
+        }
     }
 
     public function statistics()
@@ -121,7 +121,10 @@ class Server
         ++static::$_clientNum;
     }
 
-    public function checkHeartTime(){
+    public function checkHeartTime()
+    {
+//        var_dump("checkHeartTime");
+
         foreach (static::$_connections as $idx => $connection){
 
             if ($connection->checkHeartTime()){
@@ -184,6 +187,8 @@ class Server
         $this->listen();
 
         static::$_eventLoop->add($this->_mainSocket,Event::EVENT_READ,[$this,"accept"]);
+        static::$_eventLoop->add(2,Event::EVENT_TIMER,[$this,"checkHeartTime"]);
+
         $this->eventLoop();
     }
 }

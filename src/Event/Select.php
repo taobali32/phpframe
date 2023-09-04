@@ -60,11 +60,9 @@ class Select implements Event
                 unset($this->_allEvents[$fdKey][self::EVENT_READ]);
                 unset($this->_readFds[$fdKey]);
 
-
                 if (empty($this->_allEvents[$fdKey])){
                     unset($this->_allEvents[$fdKey]);
                 }
-
 
               return true;
 
@@ -78,14 +76,11 @@ class Select implements Event
                     unset($this->_allEvents[$fdKey]);
                 }
 
-
             return true;
-
 
             case self::EVENT_SIGNAL:
 
-                return  true;
-            break;
+            return  true;
         }
     }
 
