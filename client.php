@@ -90,12 +90,14 @@ while (1){
          */
         $client = $clients[$i];
 
-        if (!$client->eventLoop()){
+        for ($j = 0; $j < 1; $j++){
+            $client->send111("hello");
+        }
+
+        if (!$client->loop()){
             break;
         }
 
-        for ($j = 0; $j < 1; $j++){
-            $client->send("hello,i am client");
-        }
+
     }
 }

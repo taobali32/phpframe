@@ -7,6 +7,7 @@ namespace Jtar;
 
 use Jtar\Event\Epoll;
 use Jtar\Event\Event;
+use Jtar\Event\Select;
 use Jtar\Protocols\Stream;
 use Jtar\Protocols\Text;
 
@@ -55,7 +56,9 @@ class Server
 
         $this->_local_socket = "tcp:" . $ip . ":" . $port;
 
-        static::$_eventLoop = new Epoll();
+//        static::$_eventLoop = new Epoll();
+        static::$_eventLoop = new Select();
+
     }
 
     public function statistics()
@@ -102,85 +105,6 @@ class Server
     public function eventLoop(){
         static::$_eventLoop->loop();
     }
-
-
-    public function loop()
-    {
-        $readFds = [$this->_mainSocket];
-
-        while (1) {
-
-            $reads = $readFds;
-            $writes = [];
-            $expts = [];
-
-            $this->statistics();
-
-            $this->checkHeartTime();
-
-            if (!empty(static::$_connections)) {
-                foreach (static::$_connections as $connection) {
-                    $sockfd = $connection->connfd();
-
-                    if (is_resource($sockfd)){
-                        $reads[] = $sockfd;
-                        $writes[] = $sockfd;
-                    }
-                }
-            }
-
-//           这些是不可以重复的,重复了会出现好多奇怪的问题!!
-//            print_r($reads);
-//            print_r($writes);
-
-            //  函数是 PHP 中用于多路复用的一个函数 它可以检查多个文件流（套接字、文件等）是否可读、可写或出现异常，并在有可读、可写或异常情况发生时返回相应的文件流。
-            $ret = stream_select($reads, $writes, $expts, 0,100);
-
-            restore_error_handler();
-            if ($ret === false) {
-                break;
-            }
-
-            if ($reads){
-                foreach ($reads as $fd) {
-                    // 如果是监听socket
-                    if ($fd === $this->_mainSocket) {
-                        $this->accept();
-                    } else {
-
-                        if (isset(static::$_connections[(int)$fd])) {
-                            /**
-                             * @var TcpConnection $connection
-                             */
-                            $connection = static::$_connections[(int)$fd];
-
-                            if ($connection->isConnected()) {
-                                $connection->recv4socket();
-                            }
-                        }
-                    }
-                }
-            }
-
-            if ($writes){
-                foreach ($writes as $fd){
-
-                    if (isset(static::$_connections[(int)$fd])){
-
-                        /**
-                         * @var TcpConnection $connection
-                         */
-                        $connection = static::$_connections[(int)$fd];
-
-                        if ($connection->isConnected()){
-                            $connection->write2socket();
-                        }
-                    }
-                }
-            }
-        }
-    }
-
 
     public function onClientJoin(){
         ++static::$_clientNum;

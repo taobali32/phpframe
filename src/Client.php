@@ -2,11 +2,13 @@
 
 namespace Jtar;
 
+use Jtar\Event\Event;
+use Jtar\Event\Select;
 use Jtar\Protocols\Stream;
 
 class Client
 {
-
+    public static $_eventLoop = null;
     public $_mainClient = null;
     public $_events = [];
     private $_readBufferSize = 1024 * 100;
@@ -61,6 +63,7 @@ class Client
 
         $this->_protocol = new Stream();
 
+        static::$_eventLoop = new Select();
     }
 
 
@@ -74,11 +77,16 @@ class Client
             $this->runEventCallBack("connect", [$this]);
 
             $this->_status = self::STATUS_CONNECT;
+
+            static::$_eventLoop->add($this->_mainClient,Event::EVENT_READ,[$this,"recv4socket"]);
+
         }else{
             $this->runEventCallBack("error", [$this, $errno, $errstr]);
             exit(0);
         }
     }
+
+
 
 
     public function runEventCallBack($eventName,$args = []){
@@ -89,6 +97,64 @@ class Client
 
     public function clientFd(){
         return $this->_mainClient;
+    }
+
+    public function send111($data)
+    {
+        $len = strlen($data);
+
+        if ($this->_sendLen + $len < $this->_sendBufferSize){
+            $bin = $this->_protocol->encode($data);
+
+            $this->_sendBuffer .= $bin[1];
+            $this->_sendLen += $bin[0];
+
+            if ($this->_sendLen >= $this->_sendBufferSize){
+                $this->_sendBufferFull++;
+            }
+
+            $this->onSendMsgNum();
+        }else{
+            $this->runEventCallBack("receiveBufferFull",[$this]);
+        }
+
+        // 等到可写事件的时候发送,不写在这里了
+
+        // 发送数据的时候
+        //  1.网络不好只发送一半
+        //  2.能完整的发送
+        //  3. 对端关了
+
+        $writeLen = fwrite($this->_mainClient,$this->_sendBuffer,$this->_sendLen);
+
+        if ($writeLen == $this->_sendLen){
+
+            // 发送完成后
+            $this->_sendBuffer = '';
+            $this->_sendLen = 0;
+            $this->_sendBufferFull = 0;
+
+            static::$_eventLoop->del($this->_mainClient,Event::EVENT_WRITE);
+
+            $this->onSendWrite();
+            
+            return true;
+        }elseif ($writeLen > 0){
+
+            $this->_sendBuffer = substr($this->_sendBuffer,$writeLen);
+
+            $this->_sendLen = $writeLen;
+            $this->_sendBufferFull--;
+
+            // 没写完才添加到里面,你不能在构造函数里面把 读写都添加了, 这是epoll规定的..
+            static::$_eventLoop->add($this->_mainClient,Event::EVENT_WRITE,[$this,"write2socket"]);
+
+            return true;
+        }else{
+            $this->onClose();
+        }
+
+        return false;
     }
 
     public function send($data){
@@ -114,6 +180,11 @@ class Client
     public function needWrite()
     {
         return $this->_sendLen > 0;
+    }
+
+
+    public function loop(){
+       return static::$_eventLoop->loop1();
     }
 
 
@@ -158,7 +229,6 @@ class Client
 
         $this->_mainClient = null;
     }
-
 
 
 

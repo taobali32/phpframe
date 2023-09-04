@@ -27,7 +27,7 @@ $server->on("receive", function (Server $server, $msg, TcpConnection $connection
     fprintf(STDOUT, "recv from client<%d>:%s\r\n",(int)$connection->_connfd,$msg);
 
     $data = file_get_contents("./text.txt");
-    $connection->send($data);
+    $connection->send("aaa");
 
 });
 
