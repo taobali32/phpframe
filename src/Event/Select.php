@@ -190,54 +190,53 @@ class Select implements Event
 
     public function loop(): bool
     {
-            $reads = $this->_readFds;
-            $writes = $this->_writeFds;
-            $expts = $this->_exptFds;
+        $reads = $this->_readFds;
+        $writes = $this->_writeFds;
+        $expts = $this->_exptFds;
 
-            set_error_handler(function (){});
+        set_error_handler(function (){});
 
 //           这些是不可以重复的,重复了会出现好多奇怪的问题!!
 //            print_r($reads);
 //            print_r($writes);
 
-            //  函数是 PHP 中用于多路复用的一个函数 它可以检查多个文件流（套接字、文件等）是否可读、可写或出现异常，并在有可读、可写或异常情况发生时返回相应的文件流。
-            $ret = stream_select($reads, $writes, $expts, 0,$this->_timeOut);
+        //  函数是 PHP 中用于多路复用的一个函数 它可以检查多个文件流（套接字、文件等）是否可读、可写或出现异常，并在有可读、可写或异常情况发生时返回相应的文件流。
+        $ret = stream_select($reads, $writes, $expts, 0,$this->_timeOut);
 
-            restore_error_handler();
+        restore_error_handler();
 
-            if ($ret === false) {
-                return false;
-            }
-         
+        if ($ret === false) {
+            return false;
+        }
 
-            if (!empty($this->_timers)) {
-                $this->timerCallBack();
-            }
+        if (!empty($this->_timers)) {
+            $this->timerCallBack();
+        }
 
-            if ($reads){
-                foreach ($reads as $fd) {
-                    $fdkey = (int)$fd;
+        if ($reads){
+            foreach ($reads as $fd) {
+                $fdkey = (int)$fd;
 
-                    if (isset($this->_allEvents[$fdkey][self::EVENT_READ])){
-                        $callback = $this->_allEvents[$fdkey][self::EVENT_READ];
+                if (isset($this->_allEvents[$fdkey][self::EVENT_READ])){
+                    $callback = $this->_allEvents[$fdkey][self::EVENT_READ];
 
-                        call_user_func_array($callback[0],$callback[1]);
-                    }
+                    call_user_func_array($callback[0],$callback[1]);
                 }
             }
+        }
 
-            if ($writes){
-                foreach ($writes as $fd){
-                    $fdkey = (int)$fd;
+        if ($writes){
+            foreach ($writes as $fd){
+                $fdkey = (int)$fd;
 
-                    if (isset($this->_allEvents[$fdkey][self::EVENT_WRITE])){
-                        $callback = $this->_allEvents[$fdkey][self::EVENT_WRITE];
-                        call_user_func_array($callback[0],$callback[1]);
-                    }
+                if (isset($this->_allEvents[$fdkey][self::EVENT_WRITE])){
+                    $callback = $this->_allEvents[$fdkey][self::EVENT_WRITE];
+                    call_user_func_array($callback[0],$callback[1]);
                 }
             }
+        }
 
-            return true;
+        return true;
     }
 
     public function clearTimer()

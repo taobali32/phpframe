@@ -100,8 +100,6 @@ class Client
     }
 
 
-
-
     public function runEventCallBack($eventName,$args = []){
         if (isset($this->_events[$eventName]) && is_callable($this->_events[$eventName])) {
             $this->_events[$eventName]($this,...$args);
@@ -128,7 +126,7 @@ class Client
 
             $this->onSendMsgNum();
         }else{
-            $this->runEventCallBack("receiveBufferFull",[$this]);
+            $this->runEventCallBack("sendBufferFull",[$this]);
         }
 
         // 等到可写事件的时候发送,不写在这里了
@@ -150,6 +148,8 @@ class Client
 
                 static::$_eventLoop->del($this->_mainClient,Event::EVENT_WRITE);
 
+//                var_dump($this->_sendLen . '----' . $len);
+
                 $this->onSendWrite();
 
                 return true;
@@ -170,29 +170,8 @@ class Client
             }
         }
 
-
         return false;
     }
-
-//    public function send($data){
-//        $len = strlen($data);
-//
-//        if ($this->_sendLen +$len < $this->_sendBufferSize){
-//            $bin = $this->_protocol->encode($data);
-//
-//            $this->_sendBuffer .= $bin[1];
-//            $this->_sendLen += $bin[0];
-//
-//            if ($this->_sendLen >= $this->_sendBufferSize){
-//                $this->_sendBufferFull++;
-//            }
-//
-//            $this->onSendMsgNum();
-//        }else{
-//            $this->runEventCallBack("receiveBufferFull",[$this]);
-//        }
-//    }
-
 
     public function needWrite()
     {
@@ -212,38 +191,6 @@ class Client
 
     }
 
-//    public function eventLoop()
-//    {
-//        if (is_resource($this->_mainClient)){
-//            $readFds = [$this->_mainClient];
-//
-//            $writeFds = [$this->_mainClient];
-//
-//            $exptFds = [$this->_mainClient];
-//
-//            $ret = stream_select($readFds, $writeFds, $exptFds, NULL);
-//
-//            if ($ret <= 0 || $ret == false){
-//                return false;
-//            }
-//
-//            if ($readFds){
-//                $this->recv4socket();
-//            }
-//
-//            //  有可写事件发生
-//            if ($writeFds){
-//                $this->write2socket();
-//            }
-//
-//            return true;
-//        }else{
-//            return false;
-//        }
-//
-//    }
-
-
     public function onClose()
     {
         fclose($this->_mainClient);
@@ -253,8 +200,6 @@ class Client
 
         $this->_mainClient = null;
     }
-
-
 
     public function recv4socket()
     {

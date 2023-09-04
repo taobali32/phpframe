@@ -35,10 +35,9 @@ for ($i = 0; $i < $clientNum;$i++){
 //        $client->write2socket("world");
     });
 
-
     // 缓冲区满了
-    $client->on("receiveBufferFull", function (Client $client){
-        fprintf(STDOUT, "接收缓冲区已满\r\n");
+    $client->on("sendBufferFull", function (Client $client){
+        fprintf(STDOUT, "发送缓冲区已满\r\n");
 
     });
 
@@ -72,18 +71,18 @@ while (1){
     }
 
     for ($i=0;$i<$clientNum;$i++) {
+
         /**
          * @var \Jtar\Client $client
          */
         $client = $clients[$i];
 
-
-//        //一直等读事件产生
+        //一直等读事件产生
         if (!$client->loop()) {
             break;
         }
 
-        for ($j=0;$j<1;$j++){
+        for ($j=0;$j<$sendMessageNum;$j++){
             $client->send("hello,i am client".time());
         }
 

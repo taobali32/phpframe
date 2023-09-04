@@ -56,7 +56,6 @@ class Server
 
         $this->_local_socket = "tcp:" . $ip . ":" . $port;
 
-//
         if (DIRECTORY_SEPARATOR == "/"){
             static::$_eventLoop = new Epoll();
         }else{
@@ -66,6 +65,7 @@ class Server
 
     public function statistics()
     {
+//        var_dump("statistics");
         $nowTime = time();
         $diffTime = $nowTime - $this->_startTime;
 
