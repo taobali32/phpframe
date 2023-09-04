@@ -98,7 +98,7 @@ while (1){
         }
 
         //一直等读事件产生
-        if (!$client->eventLoop()) {
+        if (!$client->loop()) {
             break;
         }
 

@@ -64,10 +64,13 @@ class Client
 
         $this->_protocol = new Stream();
 
+        // 为什么客户端不能使用Epoll 因为Epoll里面的loop是一个while了,
+        // 你在while(1){ while(1) { } }  永远也执行不到..
+
 //        if (DIRECTORY_SEPARATOR == "/"){
-            static::$_eventLoop = new Epoll();
+//            static::$_eventLoop = new Epoll();
 //        }else{
-//            static::$_eventLoop = new Select();
+            static::$_eventLoop = new Select();
 //        }
     }
 
@@ -202,37 +205,36 @@ class Client
        return static::$_eventLoop->loop();
     }
 
-
-    public function eventLoop()
-    {
-        if (is_resource($this->_mainClient)){
-            $readFds = [$this->_mainClient];
-
-            $writeFds = [$this->_mainClient];
-
-            $exptFds = [$this->_mainClient];
-
-            $ret = stream_select($readFds, $writeFds, $exptFds, NULL);
-
-            if ($ret <= 0 || $ret == false){
-                return false;
-            }
-
-            if ($readFds){
-                $this->recv4socket();
-            }
-
-            //  有可写事件发生
-            if ($writeFds){
-                $this->write2socket();
-            }
-
-            return true;
-        }else{
-            return false;
-        }
-
-    }
+//    public function eventLoop()
+//    {
+//        if (is_resource($this->_mainClient)){
+//            $readFds = [$this->_mainClient];
+//
+//            $writeFds = [$this->_mainClient];
+//
+//            $exptFds = [$this->_mainClient];
+//
+//            $ret = stream_select($readFds, $writeFds, $exptFds, NULL);
+//
+//            if ($ret <= 0 || $ret == false){
+//                return false;
+//            }
+//
+//            if ($readFds){
+//                $this->recv4socket();
+//            }
+//
+//            //  有可写事件发生
+//            if ($writeFds){
+//                $this->write2socket();
+//            }
+//
+//            return true;
+//        }else{
+//            return false;
+//        }
+//
+//    }
 
 
     public function onClose()
