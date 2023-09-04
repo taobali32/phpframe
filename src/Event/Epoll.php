@@ -44,7 +44,7 @@ class Epoll implements Event
             unset($this->_timers[$timerId][$flag]);
         }
 
-        call_user_func_array($func, $userArg);
+        call_user_func_array($func, [$userArg]);
     }
 
     public function add($fd, $flag, $func, $args = [])
