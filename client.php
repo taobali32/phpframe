@@ -77,14 +77,17 @@ while (1){
          */
         $client = $clients[$i];
 
-        //一直等读事件产生
-        if (!$client->loop()) {
+        $res = !$client->loop();
+
+        if ($res) {
             break;
         }
 
         for ($j=0;$j<$sendMessageNum;$j++){
-            $client->send("hello,i am client".time());
+            $client->send("hello".time());
         }
 
     }
+//    sleep(1);
+
 }

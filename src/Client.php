@@ -112,6 +112,8 @@ class Client
 
     public function send($data)
     {
+//        var_dump(is_resource($this->_mainClient));
+
         $len = strlen($data);
 
         if ($this->_sendLen + $len < $this->_sendBufferSize){
@@ -126,6 +128,8 @@ class Client
 
             $this->onSendMsgNum();
         }else{
+
+            var_dump("sendLen:" . $this->_sendLen . "sendBufferFull:" . $this->_sendBufferFull . "Len:" . $len);
             $this->runEventCallBack("sendBufferFull",[$this]);
         }
 
@@ -135,6 +139,8 @@ class Client
         //  1.网络不好只发送一半
         //  2.能完整的发送
         //  3. 对端关了
+
+//        var_dump(is_resource($this->_mainClient));
 
         if ($this->isConnected()){
             $writeLen = fwrite($this->_mainClient,$this->_sendBuffer,$this->_sendLen);
@@ -148,7 +154,6 @@ class Client
 
                 static::$_eventLoop->del($this->_mainClient,Event::EVENT_WRITE);
 
-//                var_dump($this->_sendLen . '----' . $len);
 
                 $this->onSendWrite();
 
@@ -165,9 +170,18 @@ class Client
 
                 return true;
             }else{
-                $this->onClose();
+//                $this->_sendBuffer = '';
+//                $this->_sendLen = 0;
+//                $this->_sendBufferFull = 0;
+
+                if (!is_resource($this->_mainClient) || feof($this->_mainClient)){
+                    $this->onClose();
+                }
+
                 return false;
             }
+        }else{
+            throw new \Exception("not connected");
         }
 
         return false;
@@ -187,6 +201,8 @@ class Client
              */
             return static::$_eventLoop->loop();
         }catch (\Exception $exception){
+
+            var_dump($exception->getMessage());
         }
 
     }

@@ -184,7 +184,6 @@ class Select implements Event
                 }
                 call_user_func_array($func,[$timerId,$arg]);
             }
-
         }
     }
 
@@ -194,16 +193,18 @@ class Select implements Event
         $writes = $this->_writeFds;
         $expts = $this->_exptFds;
 
-        set_error_handler(function (){});
+        // 压制警告
+//        set_error_handler(function (){
+//        });
 
 //           这些是不可以重复的,重复了会出现好多奇怪的问题!!
 //            print_r($reads);
-//            print_r($writes);
+//            var_dump($writes);
 
         //  函数是 PHP 中用于多路复用的一个函数 它可以检查多个文件流（套接字、文件等）是否可读、可写或出现异常，并在有可读、可写或异常情况发生时返回相应的文件流。
         $ret = stream_select($reads, $writes, $expts, 0,$this->_timeOut);
 
-        restore_error_handler();
+//        restore_error_handler(); 恢复警告
 
         if ($ret === false) {
             return false;
