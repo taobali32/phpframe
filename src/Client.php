@@ -2,6 +2,7 @@
 
 namespace Jtar;
 
+use Jtar\Event\Epoll;
 use Jtar\Event\Event;
 use Jtar\Event\Select;
 use Jtar\Protocols\Stream;
@@ -63,7 +64,11 @@ class Client
 
         $this->_protocol = new Stream();
 
-        static::$_eventLoop = new Select();
+//        if (DIRECTORY_SEPARATOR == "/"){
+//            static::$_eventLoop = new Epoll();
+//        }else{
+            static::$_eventLoop = new Select();
+//        }
     }
 
 
@@ -74,6 +79,11 @@ class Client
         $this->_mainClient = stream_socket_client($this->_local_socket,$errno,$errstr);
 
         if (is_resource($this->_mainClient)){
+
+            stream_set_blocking($this->_mainClient,0);
+            stream_set_write_buffer($this->_mainClient, 0);
+            stream_set_read_buffer($this->_mainClient, 0);
+
             $this->runEventCallBack("connect", [$this]);
 
             $this->_status = self::STATUS_CONNECT;
@@ -99,7 +109,7 @@ class Client
         return $this->_mainClient;
     }
 
-    public function send111($data)
+    public function send($data)
     {
         $len = strlen($data);
 
@@ -125,56 +135,61 @@ class Client
         //  2.能完整的发送
         //  3. 对端关了
 
-        $writeLen = fwrite($this->_mainClient,$this->_sendBuffer,$this->_sendLen);
+        if ($this->isConnected()){
+            $writeLen = fwrite($this->_mainClient,$this->_sendBuffer,$this->_sendLen);
 
-        if ($writeLen == $this->_sendLen){
+            if ($writeLen == $this->_sendLen){
 
-            // 发送完成后
-            $this->_sendBuffer = '';
-            $this->_sendLen = 0;
-            $this->_sendBufferFull = 0;
+                // 发送完成后
+                $this->_sendBuffer = '';
+                $this->_sendLen = 0;
+                $this->_sendBufferFull = 0;
 
-            static::$_eventLoop->del($this->_mainClient,Event::EVENT_WRITE);
+                static::$_eventLoop->del($this->_mainClient,Event::EVENT_WRITE);
 
-            $this->onSendWrite();
-            
-            return true;
-        }elseif ($writeLen > 0){
+                $this->onSendWrite();
 
-            $this->_sendBuffer = substr($this->_sendBuffer,$writeLen);
+                return true;
+            }elseif ($writeLen > 0){
 
-            $this->_sendLen = $writeLen;
-            $this->_sendBufferFull--;
+                $this->_sendBuffer = substr($this->_sendBuffer,$writeLen);
 
-            // 没写完才添加到里面,你不能在构造函数里面把 读写都添加了, 这是epoll规定的..
-            static::$_eventLoop->add($this->_mainClient,Event::EVENT_WRITE,[$this,"write2socket"]);
+                $this->_sendLen = $writeLen;
+                $this->_sendBufferFull--;
 
-            return true;
-        }else{
-            $this->onClose();
+                // 没写完才添加到里面,你不能在构造函数里面把 读写都添加了, 这是epoll规定的..
+                static::$_eventLoop->add($this->_mainClient,Event::EVENT_WRITE,[$this,"write2socket"]);
+
+                return true;
+            }else{
+                $this->onClose();
+                return false;
+            }
         }
+
+
 
         return false;
     }
 
-    public function send($data){
-        $len = strlen($data);
-
-        if ($this->_sendLen +$len < $this->_sendBufferSize){
-            $bin = $this->_protocol->encode($data);
-
-            $this->_sendBuffer .= $bin[1];
-            $this->_sendLen += $bin[0];
-
-            if ($this->_sendLen >= $this->_sendBufferSize){
-                $this->_sendBufferFull++;
-            }
-
-            $this->onSendMsgNum();
-        }else{
-            $this->runEventCallBack("receiveBufferFull",[$this]);
-        }
-    }
+//    public function send($data){
+//        $len = strlen($data);
+//
+//        if ($this->_sendLen +$len < $this->_sendBufferSize){
+//            $bin = $this->_protocol->encode($data);
+//
+//            $this->_sendBuffer .= $bin[1];
+//            $this->_sendLen += $bin[0];
+//
+//            if ($this->_sendLen >= $this->_sendBufferSize){
+//                $this->_sendBufferFull++;
+//            }
+//
+//            $this->onSendMsgNum();
+//        }else{
+//            $this->runEventCallBack("receiveBufferFull",[$this]);
+//        }
+//    }
 
 
     public function needWrite()
@@ -184,7 +199,7 @@ class Client
 
 
     public function loop(){
-       return static::$_eventLoop->loop1();
+       return static::$_eventLoop->loop();
     }
 
 

@@ -70,10 +70,8 @@ class TcpConnection
     {
         $this->_connfd = $connfd;
         stream_set_blocking($this->_connfd,0);
-
-        // 设置为0,无缓冲区,写操作直接返回了
         stream_set_write_buffer($this->_connfd, 0);
-        stream_set_blocking($this->_connfd,0);
+        stream_set_read_buffer($this->_connfd, 0);
 
         $this->_clientIp = $clientIp;
         $this->_server = $server;
@@ -167,6 +165,12 @@ class TcpConnection
 
     public function send($data)
     {
+
+        if (!$this->isConnected()){
+            $this->Close();
+            return  false;
+        }
+
         $len = strlen($data);
 
         /**

@@ -56,9 +56,12 @@ class Server
 
         $this->_local_socket = "tcp:" . $ip . ":" . $port;
 
-//        static::$_eventLoop = new Epoll();
-        static::$_eventLoop = new Select();
 
+//        if (DIRECTORY_SEPARATOR == "/"){
+//            static::$_eventLoop = new Epoll();
+//        }else{
+            static::$_eventLoop = new Select();
+//        }
     }
 
     public function statistics()
