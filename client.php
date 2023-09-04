@@ -88,6 +88,9 @@ while (1){
     }
 
     for ($i=0;$i<$clientNum;$i++) {
+        /**
+         * @var \Jtar\Client $client
+         */
         $client = $clients[$i];
 
         for ($j=0;$j<$sendMessageNum;$j++){
@@ -95,7 +98,7 @@ while (1){
         }
 
         //一直等读事件产生
-        if (!$client->loop()) {
+        if (!$client->eventLoop()) {
             break;
         }
 

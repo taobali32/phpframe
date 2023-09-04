@@ -65,9 +65,9 @@ class Client
         $this->_protocol = new Stream();
 
 //        if (DIRECTORY_SEPARATOR == "/"){
-//            static::$_eventLoop = new Epoll();
+            static::$_eventLoop = new Epoll();
 //        }else{
-            static::$_eventLoop = new Select();
+//            static::$_eventLoop = new Select();
 //        }
     }
 

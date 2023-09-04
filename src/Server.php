@@ -58,9 +58,9 @@ class Server
 
 
 //        if (DIRECTORY_SEPARATOR == "/"){
-//            static::$_eventLoop = new Epoll();
+            static::$_eventLoop = new Epoll();
 //        }else{
-            static::$_eventLoop = new Select();
+//            static::$_eventLoop = new Select();
 //        }
     }
 
@@ -106,7 +106,7 @@ class Server
 
 
     public function eventLoop(){
-        static::$_eventLoop->loop1();
+        static::$_eventLoop->loop();
     }
 
     public function onClientJoin(){
