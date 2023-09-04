@@ -85,18 +85,16 @@ while (1){
             $client->_sendNum = 0;
             $client->_sendMsgNum = 0;
         }
-
     }
+
     //1000 1000秒
     for ($i=0;$i<$clientNum;$i++) {
         $client = $clients[$i];
-
 
         //一直发
         for ($j=0;$j<$sendMessageNum;$j++){
             $client->send("hello,i am client".time());
         }
-
 
         //一直等读事件产生
         if (!$client->loop()) {
