@@ -30,7 +30,7 @@ for ($i = 0; $i < $clientNum;$i++){
 
     $client->on("receive",function (Client $client, $msg){
 
-        fprintf(STDOUT, "client receive:%s\n", $msg);
+//        fprintf(STDOUT, "client receive:%s\n", $msg);
 
 //        $client->write2socket("world");
     });
@@ -85,7 +85,6 @@ while (1){
             $client->_sendNum = 0;
             $client->_sendMsgNum = 0;
         }
-
 
     }
     //1000 1000秒
