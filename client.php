@@ -86,7 +86,6 @@ while (1){
             $client->_sendMsgNum = 0;
         }
 
-
     }
     //1000 1000秒
     for ($i=0;$i<$clientNum;$i++) {
