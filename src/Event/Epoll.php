@@ -20,7 +20,7 @@ class Epoll implements Event
         $this->_eventBase = new \EventBase();
     }
 
-    public function timerCallBack($fd,$waht,$args){
+    public function timerCallBack($fd,$what,$args){
 //        $param = [$func,$flag,$timerId,$args];
 
 //            static::$_eventLoop->add(2,Event::EVENT_TIMER_ONCE,[$this,"checkHeartTime"],[]);
@@ -87,24 +87,20 @@ class Epoll implements Event
 
             case self::EVENT_TIMER:
             case self::EVENT_TIMER_ONCE:
-
-//            static::$_eventLoop->add(2,Event::EVENT_TIMER_ONCE,[$this,"checkHeartTime"],[]);
-//            public function add($fd, $flag, $func, $args = [])
-//            $event = new \Event($this->_eventBase, -1, \Event::TIMEOUT|\Event::PERSIST, [$this,"timerCallBack"],$param);
-
+                //fd 现在是当成这个微妙
                 $timerId = static::$_timerId;
-                $param = [$func,$flag,$timerId,$args];
+                $runTime = microtime(true)+$fd;
+                $param = [$func,$runTime,$flag,$timerId,$fd,$args];
 
-                $event = new \Event($this->_eventBase, -1, \Event::TIMEOUT|\Event::PERSIST, [$this,"timerCallBack"],$param);
+                $this->_timers[$timerId] = $param;
 
-                if(!$event || !$event->add($fd)){
-                    return  false;
+                $selectTime = $fd*1000000;//这里是转换为秒 百万级微妙
+                if ($this->_timeout>=$selectTime){
+                    $this->_timeout = $selectTime;
                 }
-
-                $this->_timers[$timerId][$flag] = $event;
-
                 ++static::$_timerId;
                 return $timerId;
+            break;
         }
     }
 
@@ -149,6 +145,7 @@ class Epoll implements Event
             case self::EVENT_TIMER:
             case self::EVENT_TIMER_ONCE:
                 if (isset($this->_timers[$fd][$flag])){
+                    $this->_timers[$fd][$flag]->del();
                     unset($this->_timers[$fd][$flag]);
                 }
 

@@ -4,6 +4,7 @@ namespace Jtar\Event;
 
 class Select implements Event
 {
+    public static $_timerId = 0;
     public $_eventBase;
 
     public $_allEvents = [];
@@ -17,7 +18,7 @@ class Select implements Event
 
     public $_exptFds = [];
 
-    public $_timeOut = 0;
+    public $_timeOut = 100000000; // 100秒
 
     public function __construct(){
     }
@@ -43,6 +44,26 @@ class Select implements Event
             case self::EVENT_SIGNAL:
 
                 return true;
+
+            case self::EVENT_TIMER:
+            case self::EVENT_TIMER_ONCE:
+                $timerId = static::$_timerId;
+
+                $runTime = microtime(true) + $fd;
+
+                $param = [$func,$runTime,$flag,$timerId,$fd,$arg];
+
+                $this->_timers[$timerId] = $param;
+
+                // $fd 微秒 转换为秒
+                $selectTime = $fd * 1000000;
+
+                if ($this->_timeOut >= $selectTime){
+                    $this->_timeOut = $selectTime;
+                }
+
+                ++static::$_timerId;
+                return $timerId;
         }
     }
 
@@ -79,6 +100,14 @@ class Select implements Event
             return true;
 
             case self::EVENT_SIGNAL:
+
+
+            case self::EVENT_TIMER:
+            case self::EVENT_TIMER_ONCE:
+                if (isset($this->_timers[$fd])){
+                    unset($this->_timers[$fd]);
+                }
+                break;
 
             return  true;
         }
@@ -134,6 +163,33 @@ class Select implements Event
 //        return true;
 //    }
 
+
+    public function timerCallBack()
+    {
+        foreach ($this->_timers as $k=>$timer){
+
+
+            $func = $timer[0];
+            $runTime = $timer[1];//未来执行的时间点
+            $flag = $timer[2];
+            $timerId = $timer[3];
+            $fd = $timer[4];
+            $arg = $timer[5];
+
+            if ($runTime-microtime(true)<=0){
+
+                if ($flag==Event::EVENT_TIMER_ONCE){
+                    unset($this->_timers[$timerId]);
+                }else{
+                    $runTime = microtime(true)+$fd;//取得下一个时间点
+                    $this->_timers[$k][1] = $runTime;
+                }
+                call_user_func_array($func,[$timerId,$arg]);
+            }
+
+        }
+    }
+
     public function loop()
     {
             $reads = $this->_readFds;
@@ -153,6 +209,11 @@ class Select implements Event
             if ($ret === false) {
                 return false;
             }
+
+            if (!empty($this->_timers)) {
+                $this->timerCallBack();
+            }
+
 
             if ($reads){
                 foreach ($reads as $fd) {
