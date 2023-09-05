@@ -282,7 +282,10 @@ class Client
                 $this->_sendBuffer = substr($this->_sendBuffer, $writeLen);
                 return true;
             }else{
-                $this->onClose();
+
+                if (!is_resource($this->_mainClient) || feof($this->_mainClient)){
+                    $this->onClose();
+                }
             }
         }
     }

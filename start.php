@@ -11,6 +11,10 @@ require_once "vendor/autoload.php";
 
 $server = new Server("tcp://0.0.0.0:8888");
 
+$server->setting([
+    'workerNum' =>  3
+]);
+
 // tcp connect recevie/close
 // udp packet /close
 // stream/text
@@ -24,7 +28,7 @@ $server->on("connect",function (Server $server, TcpConnection $connection){
 
 $server->on("receive", function (Server $server, $msg, TcpConnection $connection){
 //    fprintf(STDOUT, "有客户端发送数据了:%s\r\n",$msg);
-//    fprintf(STDOUT, "recv from client<%d>:%s\r\n",(int)$connection->_connfd,$msg);
+    fprintf(STDOUT, "<pid:%d>recv from client<%d>:%s\r\n",posix_getpid(),(int)$connection->_connfd,$msg);
 
 //    $data = file_get_contents("./text.txt");
     //  1`11

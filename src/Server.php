@@ -24,6 +24,17 @@ class Server
 
     public $_protocol_layout;
 
+    public $_setting = [];
+    /**
+     * @var mixed
+     */
+    public $_pidMap = [];
+
+
+    public function setting($setting){
+        $this->_setting = $setting;
+    }
+
     static public $_eventLoop;
 
     public $_protocols = [
@@ -158,7 +169,7 @@ class Server
 
             $this->runEventCallBack('connect',[$connection]);
 
-            echo "接受到客户端连接\r\n";
+//            echo "接受到客户端连接\r\n";
         }
     }
 
@@ -182,12 +193,55 @@ class Server
         }
     }
 
-    public function start(){
-        $this->listen();
+    public function worker()
+    {
 
         static::$_eventLoop->add($this->_mainSocket,Event::EVENT_READ,[$this,"accept"]);
-        static::$_eventLoop->add(2,Event::EVENT_TIMER,[$this,"checkHeartTime"]);
-        static::$_eventLoop->add(1,Event::EVENT_TIMER,[$this,"statistics"]);
+//        static::$_eventLoop->add(2,Event::EVENT_TIMER,[$this,"checkHeartTime"]);
+//        static::$_eventLoop->add(1,Event::EVENT_TIMER,[$this,"statistics"]);
+
+        $this->eventLoop();
+
+
+        exit(0);
+    }
+
+
+    public function forkWorker()
+    {
+        $this->listen();
+
+        $workerNum = $this->_setting['workerNum'] ?? 1;
+
+        for ($i = 0; $i < $workerNum; $i++){
+            $pid = pcntl_fork();
+
+            if ($pid == 0){
+                $this->worker();
+            }else{
+                $this->_pidMap[$pid] = $pid;
+            }
+        }
+    }
+
+    public function masterWork()
+    {
+        while (1) {
+            $pid = pcntl_wait($status);
+
+            if ($pid > 0) {
+                unset($this->_pidMap[$pid]);
+            }
+
+            if (empty($this->_pidMap)) {
+                break;
+            }
+        }
+    }
+
+    public function start(){
+        $this->forkWorker();
+        $this->masterWork();
 
 //        $timerId = static::$_eventLoop->add(2,Event::EVENT_TIMER,function ($timerId,$arg){
 //            print_r($arg);
@@ -195,6 +249,5 @@ class Server
 //            static::$_eventLoop->del($timerId,Event::EVENT_TIMER);
 //        },['name' => 'xx']);
 
-        $this->eventLoop();
     }
 }

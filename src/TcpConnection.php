@@ -224,7 +224,9 @@ class TcpConnection
 
             return true;
         }else{
-            $this->Close();
+            if (feof($this->_connfd) || !is_resource($this->_connfd)){
+                $this->Close();
+            }
         }
 
         return false;
