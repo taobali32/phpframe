@@ -13,6 +13,10 @@ use Jtar\Protocols\Text;
 
 class Server
 {
+    public static $_pidFile;
+    public static $_logFile;
+    public static $_startFile;
+
     private $_mainSocket;
     private $_local_socket;
     static public $_connections = [];
@@ -193,6 +197,20 @@ class Server
         }
     }
 
+    public function init()
+    {
+        $trace = debug_backtrace();
+        $startFile = array_pop($trace)['file'];
+
+        static::$_startFile = $startFile;
+
+        static::$_pidFile = pathinfo($startFile)['filename'] . ".pid";
+
+        static::$_logFile  = pathinfo($startFile)['filename'] . ".log";
+    }
+
+
+
     public function worker()
     {
 
@@ -204,6 +222,13 @@ class Server
 
 
         exit(0);
+    }
+
+    public function saveMasterPid()
+    {
+        $pid = posix_getpid();
+
+        file_put_contents(static::$_pidFile, $pid);
     }
 
 
@@ -239,8 +264,41 @@ class Server
         }
     }
 
-    public function start(){
+    public function start()
+    {
+        $this->init();
+
+        global $argv;
+
+        $command = $argv[1] ?? '';
+
+        switch ($command){
+            case "start":
+
+                if (is_file(static::$_pidFile)){
+                    $masterPid = file_get_contents(static::$_pidFile);
+                }else{
+                    $masterPid = 0;
+                }
+
+                //  检查主进程是否还在运行
+                $masterPidisAlive = $masterPid && posix_kill($masterPid, 0) && $masterPid != posix_getpid();
+
+                if ($masterPidisAlive){
+                    exit("server is running...\r\n");
+                }
+
+                break;
+
+            case "stop":
+                break;
+            default:
+                $usage = "php " . pathinfo( static::$_startFile)['filename']. " .php  start|stop";
+                exit($usage);
+        }
+
         $this->forkWorker();
+        $this->saveMasterPid();
         $this->masterWork();
 
 //        $timerId = static::$_eventLoop->add(2,Event::EVENT_TIMER,function ($timerId,$arg){

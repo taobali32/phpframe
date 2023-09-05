@@ -10,6 +10,7 @@ use Jtar\Protocols\Stream;
 class Client
 {
     public static $_eventLoop = null;
+
     public $_mainClient = null;
     public $_events = [];
     private $_readBufferSize = 1024 * 100;
@@ -75,7 +76,10 @@ class Client
     }
 
 
-    public function start(){
+
+    public function start()
+    {
+
 
         //  打开 Internet 或 Unix 域套接字连接
         //  默认情况下，流将以阻塞模式打开。您可以使用stream_set_blocking()将其切换到非阻塞模式 。
@@ -105,6 +109,9 @@ class Client
             $this->_events[$eventName]($this,...$args);
         }
     }
+
+
+
 
     public function clientFd(){
         return $this->_mainClient;
@@ -262,6 +269,8 @@ class Client
     {
         return  $this->_status == self::STATUS_CONNECT  && is_resource($this->_mainClient);
     }
+
+
 
 
     public function write2socket()
