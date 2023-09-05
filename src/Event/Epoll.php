@@ -84,7 +84,6 @@ class Epoll implements Event
                 $this->_signalEvents[(int)$fd]= $event;
                 return true;
 
-
             case self::EVENT_TIMER:
             case self::EVENT_TIMER_ONCE:
                 $timerId = static::$_timerId;
@@ -98,7 +97,6 @@ class Epoll implements Event
                 $this->_timers[$timerId][$flag] = $event;
                 ++static::$_timerId;
                 return $timerId;
-                break;
         }
     }
 
@@ -130,15 +128,13 @@ class Epoll implements Event
 
             return true;
 
-
             case self::EVENT_SIGNAL:
                 if (isset( $this->_signalEvents[(int)$fd])){
                     $event = $this->_signalEvents[(int)$fd];
                     $event->del();
                     unset($this->_signalEvents[(int)$fd]);
                 }
-                return  true;
-            break;
+            return  true;
 
             case self::EVENT_TIMER:
             case self::EVENT_TIMER_ONCE:
@@ -148,7 +144,6 @@ class Epoll implements Event
                 }
 
             break;
-
         }
     }
 
