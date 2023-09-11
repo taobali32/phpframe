@@ -47,6 +47,7 @@ class Server
      * @var mixed
      */
     public $_pidMap = [];
+    public $_usingProtocol;
 
 
     public function setting($setting){
@@ -80,8 +81,11 @@ class Server
     {
         list($protocol,$ip, $port) = explode(":", $local_socket);
         if ( isset($this->_protocols[$protocol])){
-            
+            $this->_usingProtocol = $protocol;
+
             $this->_protocol = new $this->_protocols[$protocol]();
+        }else{
+            $this->_usingProtocol = "tcp";
         }
 
         $this->_startTime = time();
@@ -649,11 +653,11 @@ class Server
 
                     //不要再使用echo,print var_dump
                     //fpm 框架[laravel,tp,yii,ci..]
-//                    $this->displayStartInfo();
+                    $this->displayStartInfo();
                     $this->masterWork();
                 }else{
                     //c /c ++ win api   msdn
-//                    $this->displayStartInfo();
+                    $this->displayStartInfo();
                     $this->worker();
                 }
 
@@ -740,6 +744,21 @@ class Server
 //        fopen("/dev/null","a");
 //        fopen("/dev/null","a");
 
+
+    }
+
+    public function displayStartInfo()
+    {
+        $info ="\r\n\e[31;40m".file_get_contents("logo.txt")." \e[0m";
+        $info.="\e[33;40mTe workerNum:".$this->_setting['workerNum']." \e[0m \r\n";
+        $info.="\e[33;40m Te taskNum:".$this->_setting['taskNum']." \e[0m \r\n";
+
+        $info.="\e[33;40m Te run mode:".($this->checkSetting("daemon")?"deamon":"debug")." \e[0m \r\n";
+        $info.="\e[33;40m Te working with :".$this->_usingProtocol." protocol \e[0m \r\n";
+        $info.="\e[33;40m Te server listen on :". $this->_local_socket." \e[0m \r\n";
+        $info.="\e[33;40m Te run on :". static::$_os." platform \e[0m \r\n";
+
+        fwrite(STDOUT,$info);
 
     }
 }
