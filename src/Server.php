@@ -10,9 +10,13 @@ use Jtar\Event\Event;
 use Jtar\Event\Select;
 use Jtar\Protocols\Stream;
 use Jtar\Protocols\Text;
+use Opis\Closure\SerializableClosure;
 
 class Server
 {
+
+    public $_unix_socket = "";
+
     const STATUS_SHUTDOWN = 3;
     const STATUS_RUNNING=2;
 
@@ -59,6 +63,9 @@ class Server
     static public $_msgNum = 0;    // 1秒中内接收了多少消息
 
     public $_startTime = 0;
+
+
+
 
     public function on($eventName,$eventCall){
         $this->_events[$eventName] = $eventCall;
@@ -157,6 +164,56 @@ class Server
     }
 
 
+    public function acceptUdpClient()
+    {
+        set_error_handler(function (){});
+
+        $len = socket_recvfrom($this->_unix_socket,$buf,65535,0,$unixClientFile);
+        restore_error_handler();
+        if ($buf&&$unixClientFile){
+
+            $udpConnection = new UdpConnection($this->_unix_socket,$len,$buf,$unixClientFile);
+//            $this->runEventCallBack("task",[$udpConnection,$buf]);
+//            $wrapper = unserialize($buf);
+
+//            $closure = $wrapper->getClosure();
+//            $closure($this);
+        }
+        return false;
+    }
+
+
+    public function task($taskFunc)
+    {
+        $unix_client_file = $this->_setting['task']['unix_socket_client_file'];
+
+        $index = mt_rand(1,2);
+        $unix_server_file = $this->_setting['task']['unix_socket_server_file'] . $index;
+
+        if (file_exists($unix_client_file)){
+            unlink($unix_client_file);
+        }
+
+        $factorial = function ($n) use ($taskFunc) {
+            return $taskFunc($n);
+        };
+
+        $wrapper = new SerializableClosure($factorial);
+        $serialized = serialize($wrapper);
+
+        $sockfd = socket_create(AF_UNIX, SOCK_DGRAM, 0);
+        socket_bind($sockfd, $unix_client_file);
+
+        $len = strlen($serialized);
+        //len|data
+        $bin = pack("N",$len+4).$serialized;
+
+        socket_sendto($sockfd, $bin, $len + 4, 0,$unix_server_file);
+
+        socket_close($sockfd);
+    }
+
+
     public function accept()
     {
         set_error_handler(function (){});
@@ -173,7 +230,6 @@ class Server
 
             $this->runEventCallBack('connect',[$connection]);
 
-//            echo "接受到客户端连接\r\n";
         }
     }
 
@@ -259,7 +315,7 @@ class Server
 
         static::$_eventLoop->add($this->_mainSocket,Event::EVENT_READ,[$this,"accept"]);
 //        static::$_eventLoop->add(2,Event::EVENT_TIMER,[$this,"checkHeartTime"]);
-        static::$_eventLoop->add(1,Event::EVENT_TIMER,[$this,"statistics"]);
+//        static::$_eventLoop->add(1,Event::EVENT_TIMER,[$this,"statistics"]);
 
 //        static::$_eventLoop->add(2,Event::EVENT_TIMER,function ($timerId,$arg){
 //            echo posix_getpid() . "定时\r\n";
@@ -267,7 +323,6 @@ class Server
 
 
         $this->runEventCallBack("workerStart",[$this]);
-
 
         $this->eventLoop();
         $this->runEventCallBack("workerStop",[$this]);
@@ -280,6 +335,91 @@ class Server
         $pid = posix_getpid();
 
         file_put_contents(static::$_pidFile, $pid);
+    }
+
+
+    public function tasksigHandler($sigNum)
+    {
+        $stream = socket_export_stream($this->_unix_socket);
+
+        static::$_eventLoop->del($stream,Event::EVENT_READ);
+
+        set_error_handler(function (){});
+
+        fclose($stream);
+
+        restore_error_handler();
+
+        $this->_unix_socket = null;
+
+        static::$_eventLoop->clearSignalEvents();
+        static::$_eventLoop->clearTimer();
+
+        if (static::$_eventLoop->exitLoop()){
+            fprintf(STDOUT, "<pid:%d> task exit event loop success\r\n", posix_getpid());
+        }
+    }
+
+    public function tasker($i)
+    {
+        srand();
+        mt_rand();
+
+        cli_set_process_title("JT/tasker");
+
+        $unix_socket_file = $this->_setting['task']['unix_socket_server_file'].$i;
+
+        if (file_exists($unix_socket_file)){
+            unlink($unix_socket_file);
+        }
+
+        //创建好的socket文件绑定一个文件
+        $this->_unix_socket = socket_create(AF_UNIX,SOCK_DGRAM,0);
+        socket_bind($this->_unix_socket,$unix_socket_file);//绑定一个地址
+
+//        $this->_unix_socket = stream_socket_server("udg:///" . $unix_socket_file, $errno, $errstr,STREAM_SERVER_BIND);
+
+        $stream = socket_export_stream($this->_unix_socket);
+        socket_set_blocking($stream,0);
+
+        if (DIRECTORY_SEPARATOR == "/"){
+            static::$_eventLoop = new Epoll();
+        }else{
+            static::$_eventLoop = new Select();
+        }
+
+        pcntl_signal(SIGINT, SIG_IGN,false);
+        pcntl_signal(SIGTERM, SIG_IGN,false);
+        pcntl_signal(SIGQUIT, SIG_IGN,false);
+
+        static::$_eventLoop->add(SIGINT,Event::EVENT_SIGNAL,[$this,"tasksigHandler"]);
+        static::$_eventLoop->add(SIGTERM,Event::EVENT_SIGNAL,[$this,"tasksigHandler"]);
+        static::$_eventLoop->add(SIGQUIT,Event::EVENT_SIGNAL,[$this,"tasksigHandler"]);
+
+//        static::$_eventLoop->add($this->_unix_socket,Event::EVENT_READ,[$this,"acceptUdpClient"]);
+        static::$_eventLoop->add($stream,Event::EVENT_READ,[$this,"acceptUdpClient"]);
+
+//        $this->runEventCallBack("workerStart",[$this]);
+        $this->eventLoop();
+//        $this->runEventCallBack("workerStop",[$this]);
+
+        exit(0);
+    }
+
+    public function forkTaskWorker()
+    {
+        $workerNum = $this->_setting['taskNum'] ?? 1;
+
+        for ($i = 0; $i < $workerNum; $i++){
+            $pid = pcntl_fork();
+
+            if ($pid == 0){
+                //
+                $this->tasker($i+1);
+            }else{
+                $this->_pidMap[$pid] = $pid;
+            }
+        }
     }
 
 
@@ -341,7 +481,6 @@ class Server
     // 主进程和子进程收到中断信号执行
     public function sigHandler($sigNum)
     {
-
         var_dump("主收到sigHandler:" . $sigNum);
 
         $masterPid = file_get_contents(static::$_pidFile);
@@ -354,18 +493,16 @@ class Server
                 //主进程
                 if ($masterPid==posix_getpid()){
 
-                    print_r($this->_pidMap);
+//                    print_r($this->_pidMap);
 
                     foreach ($this->_pidMap as $pid=>$pid){
 
                         posix_kill($pid,$sigNum);//SIGKILL 它是粗暴的关掉，不过子进程在干什么 SIGTERM,SIGQUIT
                     }
                     static::$_status = self::STATUS_SHUTDOWN;
-                    
-                    var_dump("主进程循环杀子信号");
 
                 }else{
-                    
+
                     static::$_eventLoop->exitLoop();
                     //子进程的 就要停掉现在的任务了
                     static::$_eventLoop->del($this->_mainSocket,Event::EVENT_READ);
@@ -386,14 +523,8 @@ class Server
 
                         fprintf(STDOUT, "<pid:%d> worker exit event loop success\r\n", posix_getpid());
 //                        $this->echoLog("<pid:%d> worker exit event loop success\r\n",posix_getpid());
-
-
                     }
-
-
-
                 }
-
                 break;
         }
     }
@@ -463,6 +594,8 @@ class Server
                 $this->installSignalHandler();
 
                 $this->forkWorker();
+
+                $this->forkTaskWorker();
 
                 static::$_status = self::STATUS_RUNNING;
 

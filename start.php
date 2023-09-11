@@ -12,7 +12,12 @@ require_once "vendor/autoload.php";
 $server = new Server("tcp://0.0.0.0:8889");
 
 $server->setting([
-    'workerNum' =>  2
+    'workerNum' =>  2,
+    'taskNum'=>2,
+    "task"  =>  [
+        "unix_socket_server_file" => "/home/ubuntu/php/jtar/sock/te_unix_socket_server",
+        "unix_socket_client_file" => "/home/ubuntu/php/jtar/sock/te_unix_socket_client",
+    ]
 ]);
 
 // tcp connect recevie/close
@@ -54,6 +59,16 @@ $server->on("receive", function (Server $server, $msg, TcpConnection $connection
     fprintf(STDOUT, "<pid:%d>recv from client<%d>:%s\r\n",posix_getpid(),(int)$connection->_connfd,$msg);
 
 //    $data = file_get_contents("./text.txt");
+    
+
+    $server->task(function ($result)use($server){
+
+        sleep(5);
+
+//        $server->echoLog("异步任务我执行完，时间到了\r\n");
+        echo time()."\r\n";
+
+    });//耗时任务可以投递到任务进程来做
     $connection->send("aaa");
 });
 
@@ -64,6 +79,10 @@ $server->on("close", function (Server $server, $connfd, TcpConnection $connectio
 // 缓冲区满了
 $server->on("receiveBufferFull", function (Server $server,TcpConnection $connection){
     fprintf(STDOUT, "接收缓冲区已满\r\n");
+});
+
+$server->on("task", function (Server $server,\Jtar\UdpConnection $connection,$msg){
+    fprintf(STDOUT, "task process <pid:%d> on task %s\r\n",posix_getpid(),$msg);
 });
 
 $server->start();
