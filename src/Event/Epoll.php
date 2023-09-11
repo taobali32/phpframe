@@ -74,6 +74,8 @@ class Epoll implements Event
 
                 return true;
 
+
+            // 添加信号, 参考 event.php
             case self::EVENT_SIGNAL:
                 $event = new \Event($this->_eventBase, $fd, \Event::SIGNAL, $func,$args);
 
@@ -84,6 +86,7 @@ class Epoll implements Event
                 $this->_signalEvents[(int)$fd]= $event;
                 return true;
 
+            //  定时器添加
             case self::EVENT_TIMER:
             case self::EVENT_TIMER_ONCE:
                 $timerId = static::$_timerId;
@@ -125,8 +128,7 @@ class Epoll implements Event
                 if (empty($this->_allEvents[(int)$fd])){
                     unset($this->_allEvents[(int)$fd]);
                 }
-
-            return true;
+                break;
 
             case self::EVENT_SIGNAL:
                 if (isset( $this->_signalEvents[(int)$fd])){
@@ -134,8 +136,9 @@ class Epoll implements Event
                     $event->del();
                     unset($this->_signalEvents[(int)$fd]);
                 }
-            return  true;
+            break;
 
+//                定时器删除  $flag 一次还是多次的定时器!=>
             case self::EVENT_TIMER:
             case self::EVENT_TIMER_ONCE:
                 if (isset($this->_timers[$fd][$flag])){
@@ -152,13 +155,32 @@ class Epoll implements Event
         $this->_eventBase->dispatch();
     }
 
+    public function exitLoop()
+    {
+        // TODO: Implement exitLoop() method.
+        return $this->_eventBase->stop();
+    }
+
+    // 清理定时器
     public function clearTimer()
     {
-        // TODO: Implement clearTimer() method.
+        foreach ($this->_timers as $timerId=>$event){
+
+            if(current($event)->del()){
+            }
+        }
+
+        $this->_timers = [];
     }
 
     public function clearSignalEvents()
     {
-        // TODO: Implement clearSignalEvents() method.
+        foreach ($this->_signalEvents as $fd=>$event){
+
+            if($event->del()){
+            }
+        }
+
+        $this->_signalEvents = [];
     }
 }

@@ -13,9 +13,14 @@ use Jtar\Protocols\Text;
 
 class Server
 {
+    const STATUS_SHUTDOWN = 3;
+    const STATUS_RUNNING=2;
+
+    const STATUS_STARTING = 1;
     public static $_pidFile;
     public static $_logFile;
     public static $_startFile;
+    public static $_status;
 
     private $_mainSocket;
     private $_local_socket;
@@ -71,11 +76,6 @@ class Server
 
         $this->_local_socket = "tcp:" . $ip . ":" . $port;
 
-        if (DIRECTORY_SEPARATOR == "/"){
-            static::$_eventLoop = new Epoll();
-        }else{
-            static::$_eventLoop = new Select();
-        }
     }
 
     public function statistics()
@@ -121,14 +121,7 @@ class Server
 
 
     public function eventLoop(){
-
-        if (static::$_eventLoop instanceof Select){
-            while (1){
-                static::$_eventLoop->loop();
-            }
-        }else{
-            static::$_eventLoop->loop();
-        }
+        static::$_eventLoop->loop();
     }
 
     public function onClientJoin(){
@@ -162,7 +155,10 @@ class Server
 
     public function accept()
     {
+        set_error_handler(function (){});
+
         $connfd = stream_socket_accept($this->_mainSocket, -1,$peername);
+        restore_error_handler();
 
         if (is_resource($connfd)) {
 
@@ -190,15 +186,14 @@ class Server
             unset(static::$_connections[(int)$connfd]);
 
             --static::$_clientNum;
-
-            if (is_resource($connfd)){
-                fclose($connfd);
-            }
         }
     }
 
+
+
     public function init()
     {
+        // 创建日志文件和pid保存文件
         $trace = debug_backtrace();
         $startFile = array_pop($trace)['file'];
 
@@ -207,19 +202,55 @@ class Server
         static::$_pidFile = pathinfo($startFile)['filename'] . ".pid";
 
         static::$_logFile  = pathinfo($startFile)['filename'] . ".log";
+
+        if (!file_exists(static::$_logFile)){
+            file_put_contents(static::$_logFile, "");
+
+            chown(static::$_logFile, posix_getuid());
+        }
     }
 
 
 
     public function worker()
     {
+        static::$_status = self::STATUS_RUNNING;
+
+//        cli_set_process_title("Te/worker");
+
+        if (DIRECTORY_SEPARATOR == "/"){
+            static::$_eventLoop = new Epoll();
+        }else{
+            static::$_eventLoop = new Select();
+        }
+//        static::$_eventLoop = new Select();
+
+        // 子进程安装信号!
+        // 用事件循环的信号,所以先忽略下
+        pcntl_signal(SIGINT, SIG_IGN,false);  //  忽略 ctrl+c
+        pcntl_signal(SIGTERM, SIG_IGN,false); //  忽略 请求进程终止
+        pcntl_signal(SIGQUIT, SIG_IGN,false); //  忽略 请求进程终止并生成核心转储（core dump）
+        //  该信号在与一个已关闭的写入端点的管道通信时发生。当您尝试向一个已关闭的管道写入数据时
+//        pcntl_signal(SIGPIPE, SIG_IGN,false);
+
+        static::$_eventLoop->add(SIGINT,Event::EVENT_SIGNAL,[$this,"sigHandler"]);
+        static::$_eventLoop->add(SIGTERM,Event::EVENT_SIGNAL,[$this,"sigHandler"]);
+        static::$_eventLoop->add(SIGQUIT,Event::EVENT_SIGNAL,[$this,"sigHandler"]);
 
         static::$_eventLoop->add($this->_mainSocket,Event::EVENT_READ,[$this,"accept"]);
 //        static::$_eventLoop->add(2,Event::EVENT_TIMER,[$this,"checkHeartTime"]);
 //        static::$_eventLoop->add(1,Event::EVENT_TIMER,[$this,"statistics"]);
 
-        $this->eventLoop();
+//        static::$_eventLoop->add(2,Event::EVENT_TIMER,function ($timerId,$arg){
+//            echo posix_getpid() . "定时\r\n";
+//        });
 
+
+        $this->runEventCallBack("workerStart",[$this]);
+
+
+        $this->eventLoop();
+        $this->runEventCallBack("workerStop",[$this]);
 
         exit(0);
     }
@@ -234,8 +265,6 @@ class Server
 
     public function forkWorker()
     {
-        $this->listen();
-
         $workerNum = $this->_setting['workerNum'] ?? 1;
 
         for ($i = 0; $i < $workerNum; $i++){
@@ -249,23 +278,132 @@ class Server
         }
     }
 
+    public function reloadWorker(){
+        $pid = pcntl_fork();
+
+        if ($pid == 0){
+            $this->worker();
+        }else {
+            $this->_pidMap[$pid] = $pid;
+        }
+    }
+
     public function masterWork()
     {
-        while (1) {
+       while (1) {
+        //在给定的代码片段中，pcntl_signal_dispatch()函数被调用两次。
+        //第一次调用用于处理可能在之前被挂起的信号，
+        //第二次调用用于处理pcntl_wait()函数返回的子进程状态。这样可以确保在等待子进程结束期间，其他挂起的信号能够得到及时处理。
+           pcntl_signal_dispatch();
             $pid = pcntl_wait($status);
+           pcntl_signal_dispatch();
+
+           // 这3行回收子进程
 
             if ($pid > 0) {
                 unset($this->_pidMap[$pid]);
+
+                if (self::STATUS_SHUTDOWN != static::$_status){
+                    $this->reloadWorker();
+                }
             }
 
             if (empty($this->_pidMap)) {
                 break;
             }
         }
+
+        $this->runEventCallBack("masterShutdown",[$this]);
+
+        exit(0);
+    }
+
+    // 主进程和子进程收到中断信号执行
+    public function sigHandler($sigNum)
+    {
+
+        var_dump("主收到sigHandler:" . $sigNum);
+
+        $masterPid = file_get_contents(static::$_pidFile);
+        switch ($sigNum){
+
+            case SIGINT:
+            case SIGTERM:
+            case SIGQUIT:
+
+                //主进程
+                if ($masterPid==posix_getpid()){
+
+                    print_r($this->_pidMap);
+
+                    foreach ($this->_pidMap as $pid=>$pid){
+
+                        posix_kill($pid,$sigNum);//SIGKILL 它是粗暴的关掉，不过子进程在干什么 SIGTERM,SIGQUIT
+                    }
+                    static::$_status = self::STATUS_SHUTDOWN;
+                    
+                    var_dump("主进程循环杀子信号");
+
+                }else{
+                    
+                    static::$_eventLoop->exitLoop();
+                    //子进程的 就要停掉现在的任务了
+                    static::$_eventLoop->del($this->_mainSocket,Event::EVENT_READ);
+                    set_error_handler(function (){});
+                    fclose($this->_mainSocket);
+                    restore_error_handler();
+                    $this->_mainSocket = null;
+                    foreach (static::$_connections as $fd=>$connection){
+
+                        $connection->Close();
+                    }
+                    static::$_connections = [];
+
+                    static::$_eventLoop->clearSignalEvents();
+                    static::$_eventLoop->clearTimer();
+
+                    if (static::$_eventLoop->exitLoop()){
+
+                        fprintf(STDOUT, "<pid:%d> worker exit event loop success\r\n", posix_getpid());
+//                        $this->echoLog("<pid:%d> worker exit event loop success\r\n",posix_getpid());
+
+
+                    }
+
+
+
+                }
+
+                break;
+        }
+    }
+
+    // 主进程安装信号.
+    public function installSignalHandler()
+    {
+        /**
+         * 在pcntl_signal(SIGINT,[$this,"sigHandler"],false)中，false参数表示信号处理函数是否可重入。
+         *
+         * 当设置为false时，表示信号处理函数sigHandler不可重入。这意味着如果在处理信号期间再次收到相同的信号，那么第二个信号将被忽略，直到第一个信号处理完毕。
+         *
+         * 如果将该参数设置为true，则表示信号处理函数可重入。这意味着如果在处理信号期间再次收到相同的信号，那么第二个信号不会被忽略，而是会立即触发信号处理函数。
+         *
+         * 通常情况下，将该参数设置为false是比较常见的做法，以避免信号处理函数的重入导致意外的行为或竞争条件
+         */
+        pcntl_signal(SIGINT, [$this,"sigHandler"],false);
+        pcntl_signal(SIGTERM, [$this,"sigHandler"],false);
+        pcntl_signal(SIGQUIT, [$this,"sigHandler"],false);
+
+        // 读写socket文件时产生信号时候忽略, 主要是 对端关闭了,  你还在发,就会产生这信号
+        pcntl_signal(SIGPIPE, SIG_IGN,false);
+
     }
 
     public function start()
     {
+        // 开始运行标志
+        static::$_status = self::STATUS_STARTING;
+
         $this->init();
 
         global $argv;
@@ -281,25 +419,76 @@ class Server
                     $masterPid = 0;
                 }
 
-                //  检查主进程是否还在运行
+                //  检测进程是否存在 ,posix_kill($masterPid, 0)   0
+                /**
+                 * posix_kill($masterPid, 0)：posix_kill() 函数用于发送信号给指定进程。在这里，我们使用信号编号为0的信号，它实际上并不发送给进程，而是用于检查进程是否存在。如果进程存在，该函数将返回 true，否则返回 false。
+                 */
                 $masterPidisAlive = $masterPid && posix_kill($masterPid, 0) && $masterPid != posix_getpid();
+
+                /**
+                 * $masterPid != posix_getpid()：这是一个额外的条件，
+                 * 用于确保 $masterPid 不是当前进程的进程ID。这是为了避免将当前进程误判为主进程。
+                 */
 
                 if ($masterPidisAlive){
                     exit("server is running...\r\n");
                 }
 
+                
+                $this->runEventCallBack("masterStart",[$this]);
+
+                $this->saveMasterPid();
+                $this->installSignalHandler();
+                $this->listen();
+
+                $this->forkWorker();
+
+                static::$_status = self::STATUS_RUNNING;
+
+                $this->masterWork();
+
                 break;
 
             case "stop":
+                $masterPid = file_get_contents(static::$_pidFile);
+                if ($masterPid&&posix_kill($masterPid,0)){
+
+                    //  给主进程发
+                    posix_kill($masterPid,SIGINT);
+                    echo "发送了SIGTERM信号了\r\n";
+                    echo $masterPid."\r\n";
+                    $timeout = 5;
+                    $stopTime = time();
+                    while (1){
+
+                        $masterPidisAlive = $masterPid&& posix_kill($masterPid,0)&& $masterPid != posix_getpid();
+                        if ($masterPidisAlive){
+
+                            if (time()-$stopTime>=$timeout){
+
+                                fprintf(STDOUT, "server stop failure\r\n");
+                                break;
+                            }
+                            sleep(1);
+                            continue;
+                        }
+
+                        fprintf(STDOUT, "server stop success\r\n");
+//                        $this->echoLog("server stop success\r\n");
+                        break;
+                    }
+
+                }else{
+                    exit("server not exist...");
+                }
+
                 break;
             default:
-                $usage = "php " . pathinfo( static::$_startFile)['filename']. " .php  start|stop";
+                //php te.php start|stop
+                $usage = "php ".pathinfo(static::$_startFile)['filename'].".php [start|stop]\r\n";
                 exit($usage);
         }
 
-        $this->forkWorker();
-        $this->saveMasterPid();
-        $this->masterWork();
 
 //        $timerId = static::$_eventLoop->add(2,Event::EVENT_TIMER,function ($timerId,$arg){
 //            print_r($arg);

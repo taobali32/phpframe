@@ -80,7 +80,6 @@ class Client
     public function start()
     {
 
-
         //  打开 Internet 或 Unix 域套接字连接
         //  默认情况下，流将以阻塞模式打开。您可以使用stream_set_blocking()将其切换到非阻塞模式 。
         $this->_mainClient = stream_socket_client($this->_local_socket,$errno,$errstr);
@@ -271,8 +270,6 @@ class Client
     }
 
 
-
-
     public function write2socket()
     {
         if ($this->needWrite() && $this->isConnected()){
@@ -289,6 +286,8 @@ class Client
             }elseif ($writeLen > 0){
                 $this->_sendLen -= $writeLen;
                 $this->_sendBuffer = substr($this->_sendBuffer, $writeLen);
+
+                // TODO 还没发完
                 return true;
             }else{
 

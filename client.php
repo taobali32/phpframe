@@ -55,7 +55,6 @@ while (1){
         $sendMsgNum=0;
 
         foreach ($clients as $client){
-
             $sendNum+=$client->_sendNum;
             $sendMsgNum+=$client->_sendMsgNum;
         }
@@ -64,7 +63,6 @@ while (1){
             $diff,$clientNum,$sendNum,$sendMsgNum*$sendMessageNum);
 
         foreach ($clients as $client){
-
             $client->_sendNum = 0;
             $client->_sendMsgNum = 0;
         }

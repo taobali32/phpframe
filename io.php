@@ -4,6 +4,7 @@
 //多进程编程
 $sockfd = stream_socket_pair(AF_UNIX,SOCK_STREAM,0);
 
+// 设置为非阻塞!!
 stream_set_blocking($sockfd[0],0);
 stream_set_blocking($sockfd[1],0);
 

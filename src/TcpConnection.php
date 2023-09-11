@@ -121,7 +121,6 @@ class TcpConnection
         }
 
         if ($this->_recvLen > 0){
-
             $this->handleMessage();
         }
     }
@@ -152,9 +151,9 @@ class TcpConnection
                 $server->runEventCallBack("receive", [$msg,$this]);
             }
         }else{
+            // 如果没使用协议
 
             $server->runEventCallBack("receive", [$this->_recvBuffer,$this]);
-
             $this->_recvBuffer = "";
             $this->_recvLen = 0;
             $this->_recvBufferFull = 0;
@@ -165,10 +164,9 @@ class TcpConnection
 
     public function send($data)
     {
-
         if (!$this->isConnected()){
             $this->Close();
-            return  false;
+            return false;
         }
 
         $len = strlen($data);
@@ -244,10 +242,10 @@ class TcpConnection
         if ($this->needWrite()) {
 
             // 除掉发送警告
-            set_error_handler(function () {
-            });
+            set_error_handler(function () {});
             $writeLen = fwrite($this->_connfd, $this->_sendBuffer, $this->_sendLen);
 
+            // 恢复警告
             restore_error_handler();
             if ($writeLen == $this->_sendLen) {
                 $this->_sendBuffer = '';
@@ -263,12 +261,6 @@ class TcpConnection
                 var_dump("第一次没发送完,继续发送");
                 $this->_sendBuffer = substr($this->_sendBuffer,$writeLen);
                 $this->_sendLen = $writeLen;
-                $this->_sendBufferFull--;
-
-                //
-//                Server::$_eventLoop->del($this->_connfd,Event::EVENT_WRITE);
-                //
-                //
                 return true;
             } else {
 
@@ -284,7 +276,6 @@ class TcpConnection
     public function Close()
     {
 //        $this->_server->echoLog("移除<socket:%d>连接\r\n",(int)$this->_sockfd);
-        //print_r(debug_backtrace());
         Server::$_eventLoop->del($this->_connfd,Event::EVENT_READ);
         Server::$_eventLoop->del($this->_connfd,Event::EVENT_WRITE);
 

@@ -9,10 +9,10 @@ use Jtar\TcpConnection;
 
 require_once "vendor/autoload.php";
 
-$server = new Server("tcp://0.0.0.0:8888");
+$server = new Server("tcp://0.0.0.0:8889");
 
 $server->setting([
-    'workerNum' =>  3
+    'workerNum' =>  1
 ]);
 
 // tcp connect recevie/close
@@ -26,14 +26,32 @@ $server->on("connect",function (Server $server, TcpConnection $connection){
 //    fprintf(STDOUT, "有客户端连了\n");
 });
 
+$server->on("masterStart", function (Server $server){
+    fprintf(STDOUT,"master server start\r\n");
+});
+
+
+$server->on("masterShutdown", function (Server $server){
+    fprintf(STDOUT,"master server shutdown\r\n");
+});
+
+$server->on("workerStart", function (Server $server){
+    fprintf(STDOUT,"worker <pid:%d> start\r\n",posix_getpid());
+
+});
+
+
+$server->on("workerStop", function (Server $server){
+    fprintf(STDOUT,"worker <pid:%d> stop\r\n",posix_getpid());
+});
+
+
 $server->on("receive", function (Server $server, $msg, TcpConnection $connection){
 //    fprintf(STDOUT, "有客户端发送数据了:%s\r\n",$msg);
     fprintf(STDOUT, "<pid:%d>recv from client<%d>:%s\r\n",posix_getpid(),(int)$connection->_connfd,$msg);
 
 //    $data = file_get_contents("./text.txt");
-    //  1`11
     $connection->send("aaa");
-
 });
 
 $server->on("close", function (Server $server, $connfd, TcpConnection $connection){
