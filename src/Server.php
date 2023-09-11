@@ -5,6 +5,7 @@ namespace Jtar;
 
 namespace Jtar;
 
+use Exception;
 use Jtar\Event\Epoll;
 use Jtar\Event\Event;
 use Jtar\Event\Select;
@@ -285,6 +286,11 @@ class Server
         }else{
             static::$_os = "WIN";
         }
+
+        set_error_handler(function ($errno, $errstr, $errfile, $errline){
+
+            $this->echoLog("<file:%s>---<line:%s>---<info:%s>\r\n",$errfile,$errline,$errstr);
+        });
     }
 
     public function echoLog($format,...$data)
@@ -631,8 +637,8 @@ class Server
 
                     if ($this->checkSetting("daemon")){
 
-//                        $this->daemon();
-//                        $this->resetFd();
+                        $this->daemon();
+                        $this->resetFd();
                     }
                     $this->saveMasterPid();
                     $this->installSignalHandler();
@@ -699,6 +705,41 @@ class Server
 //            print_r($timerId);
 //            static::$_eventLoop->del($timerId,Event::EVENT_TIMER);
 //        },['name' => 'xx']);
+
+    }
+
+
+    public function daemon()
+    {
+        umask(000);
+
+        $pid = pcntl_fork();
+        if ($pid>0){
+            exit(0);
+        }
+
+        if (-1==posix_setsid()){
+
+            throw new Exception("setsid failure");
+            exit(0);
+        }
+
+        $pid = pcntl_fork();
+        if ($pid>0){
+            exit(0);
+        }
+    }
+
+    private function resetFd()
+    {
+        fclose(STDIN);
+        fclose(STDOUT);
+        fclose(STDERR);
+
+        fopen("/dev/null","a");
+        fopen("/dev/null","a");
+        fopen("/dev/null","a");
+
 
     }
 }

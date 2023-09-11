@@ -14,6 +14,7 @@ $server = new Server("tcp://0.0.0.0:8889");
 $server->setting([
     'workerNum' =>  2,
     'taskNum'=>2,
+    "daemon"=>true,
     "task"  =>  [
         "unix_socket_server_file" => "/home/ubuntu/php/jtar/sock/te_unix_socket_server",
         "unix_socket_client_file" => "/home/ubuntu/php/jtar/sock/te_unix_socket_client",
