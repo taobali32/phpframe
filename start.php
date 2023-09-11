@@ -12,7 +12,7 @@ require_once "vendor/autoload.php";
 $server = new Server("tcp://0.0.0.0:8889");
 
 $server->setting([
-    'workerNum' =>  1
+    'workerNum' =>  2
 ]);
 
 // tcp connect recevie/close
@@ -30,6 +30,9 @@ $server->on("masterStart", function (Server $server){
     fprintf(STDOUT,"master server start\r\n");
 });
 
+$server->on("workerReload",function (Server $server){
+    fprintf(STDOUT,"worker <pid:%d> reload\r\n",posix_getpid());
+});
 
 $server->on("masterShutdown", function (Server $server){
     fprintf(STDOUT,"master server shutdown\r\n");

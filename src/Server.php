@@ -87,7 +87,7 @@ class Server
         $this->_startTime = $nowTime;
 
         if ($diffTime >= 1){
-            fprintf(STDOUT, "time:%s--socket<%d>--<clientNum:%d>--<recvNum:%d>--<msgNum:%d>\r\n",$diffTime, (int)$this->_mainSocket, static::$_clientNum, static::$_recvNum, static::$_msgNum);
+            fprintf(STDOUT, "pid<%d>time:%s--socket<%d>--<clientNum:%d>--<recvNum:%d>--<msgNum:%d>\r\n",posix_getpid(),$diffTime, (int)$this->_mainSocket, static::$_clientNum, static::$_recvNum, static::$_msgNum);
 
             static::$_recvNum = 0;
             static::$_msgNum = 0;
@@ -99,6 +99,10 @@ class Server
     {
         $flag = STREAM_SERVER_LISTEN|STREAM_SERVER_BIND;
         $option['socket']['backlog'] = 102400;
+
+        // socket端口复用
+        $option['socket']['so_reuseport'] = 1;
+
 
         //  创建并返回一个资源流上下文，该资源流中包含了 options 中提前设定的所有参数的值。
         //  https://www.php.net/manual/zh/function.stream-context-create.php
@@ -214,6 +218,22 @@ class Server
 
     public function worker()
     {
+        //  判断方式
+        //  当子进程启动后status==start的,,cow复制技术, 复制的时候状态是start,
+        //  到这里 肯定不想等于的
+        if (self::STATUS_RUNNING == self::$_status){
+            //  异常启动
+            $this->runEventCallBack("workerReload",[$this]);
+        }else{
+            //  正常启动
+            static::$_status == self::STATUS_RUNNING;
+        }
+
+        cli_set_process_title("JT/worker");
+
+        $this->listen();
+
+
         static::$_status = self::STATUS_RUNNING;
 
 //        cli_set_process_title("Te/worker");
@@ -239,7 +259,7 @@ class Server
 
         static::$_eventLoop->add($this->_mainSocket,Event::EVENT_READ,[$this,"accept"]);
 //        static::$_eventLoop->add(2,Event::EVENT_TIMER,[$this,"checkHeartTime"]);
-//        static::$_eventLoop->add(1,Event::EVENT_TIMER,[$this,"statistics"]);
+        static::$_eventLoop->add(1,Event::EVENT_TIMER,[$this,"statistics"]);
 
 //        static::$_eventLoop->add(2,Event::EVENT_TIMER,function ($timerId,$arg){
 //            echo posix_getpid() . "定时\r\n";
@@ -413,6 +433,8 @@ class Server
         switch ($command){
             case "start":
 
+                cli_set_process_title("JT/master");
+
                 if (is_file(static::$_pidFile)){
                     $masterPid = file_get_contents(static::$_pidFile);
                 }else{
@@ -439,7 +461,6 @@ class Server
 
                 $this->saveMasterPid();
                 $this->installSignalHandler();
-                $this->listen();
 
                 $this->forkWorker();
 
