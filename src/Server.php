@@ -15,6 +15,10 @@ use Opis\Closure\SerializableClosure;
 class Server
 {
 
+    /**
+     * @var string
+     */
+    public static $_os;
     public $_unix_socket = "";
 
     const STATUS_SHUTDOWN = 3;
@@ -253,6 +257,8 @@ class Server
 
     public function init()
     {
+        date_default_timezone_set("Asia/Shanghai");
+
         // 创建日志文件和pid保存文件
         $trace = debug_backtrace();
         $startFile = array_pop($trace)['file'];
@@ -264,12 +270,41 @@ class Server
         static::$_logFile  = pathinfo($startFile)['filename'] . ".log";
 
         if (!file_exists(static::$_logFile)){
-            file_put_contents(static::$_logFile, "");
+//            file_put_contents(static::$_logFile, "");
 
-            chown(static::$_logFile, posix_getuid());
+            touch(static::$_logFile);
+//            chown(static::$_logFile, posix_getuid());
+        }
+
+        if (DIRECTORY_SEPARATOR=="/"){
+            static::$_os = "LINUX";
+            chown(static::$_logFile,posix_getuid());
+        }else{
+            static::$_os = "WIN";
         }
     }
 
+    public function echoLog($format,...$data)
+    {
+        if ($this->checkSetting("daemon")&&static::$_os!="WIN") {
+
+            $info = sprintf($format,...$data);
+            $msg = "[pid:".posix_getpid()."]-[".date("Y-m-d H:i:s")."]-[info:".$info."]\r\n";
+            file_put_contents(static::$_logFile,$msg,FILE_APPEND);
+        }else{
+
+            fprintf(STDOUT,$format,...$data);
+        }
+    }
+
+    public function checkSetting($item)
+    {
+        if (isset($this->_setting[$item])&&$this->_setting[$item]==true) {
+
+            return true;
+        }
+        return false;
+    }
 
 
     public function worker()
@@ -587,19 +622,31 @@ class Server
                     exit("server is running...\r\n");
                 }
 
-                
                 $this->runEventCallBack("masterStart",[$this]);
 
-                $this->saveMasterPid();
-                $this->installSignalHandler();
+                if ("LINUX"==static::$_os){
 
-                $this->forkWorker();
+                    if ($this->checkSetting("daemon")){
 
-                $this->forkTaskWorker();
+//                        $this->daemon();
+//                        $this->resetFd();
+                    }
+                    $this->saveMasterPid();
+                    $this->installSignalHandler();
+                    $this->forkWorker();
+                    $this->forkTaskWorker();
 
-                static::$_status = self::STATUS_RUNNING;
+                    static::$_status = self::STATUS_RUNNING;
 
-                $this->masterWork();
+                    //不要再使用echo,print var_dump
+                    //fpm 框架[laravel,tp,yii,ci..]
+//                    $this->displayStartInfo();
+                    $this->masterWork();
+                }else{
+                    //c /c ++ win api   msdn
+//                    $this->displayStartInfo();
+                    $this->worker();
+                }
 
                 break;
 
