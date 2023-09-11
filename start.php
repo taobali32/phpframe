@@ -30,6 +30,8 @@ $server->setting([
 
 $server->on("connect",function (Server $server, TcpConnection $connection){
 //    fprintf(STDOUT, "有客户端连了\n");
+    $server->echoLog("有客户端连接了");
+
 });
 
 $server->on("masterStart", function (Server $server){
@@ -57,10 +59,12 @@ $server->on("workerStop", function (Server $server){
 
 $server->on("receive", function (Server $server, $msg, TcpConnection $connection){
 //    fprintf(STDOUT, "有客户端发送数据了:%s\r\n",$msg);
-    fprintf(STDOUT, "<pid:%d>recv from client<%d>:%s\r\n",posix_getpid(),(int)$connection->_connfd,$msg);
 
-//    $data = file_get_contents("./text.txt");
-    
+    $server->echoLog("recv from client<%d>:%s\r\n",(int)$connection->_connfd,$msg);
+
+//    fprintf(STDOUT, "<pid:%d>recv from client<%d>:%s\r\n",posix_getpid(),(int)$connection->_connfd,$msg);
+
+
 
     $server->task(function ($result)use($server){
 
@@ -74,7 +78,8 @@ $server->on("receive", function (Server $server, $msg, TcpConnection $connection
 });
 
 $server->on("close", function (Server $server, $connfd, TcpConnection $connection){
-    fprintf(STDOUT, "有客户端关闭了:%d\r\n",(int)$connfd);
+//    fprintf(STDOUT, "有客户端关闭了:%d\r\n",(int)$connfd);
+    $server->echoLog("客户端断开连接了");
 });
 
 // 缓冲区满了

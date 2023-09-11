@@ -732,13 +732,13 @@ class Server
 
     private function resetFd()
     {
-        fclose(STDIN);
-        fclose(STDOUT);
-        fclose(STDERR);
-
-        fopen("/dev/null","a");
-        fopen("/dev/null","a");
-        fopen("/dev/null","a");
+//        fclose(STDIN);
+//        fclose(STDOUT);
+//        fclose(STDERR);
+//
+//        fopen("/dev/null","a");
+//        fopen("/dev/null","a");
+//        fopen("/dev/null","a");
 
 
     }
