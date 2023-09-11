@@ -114,6 +114,9 @@ class Server
         // socket端口复用
         $option['socket']['so_reuseport'] = 1;
 
+        // TCP_NODELAY 禁用nigal算法
+        $option['tcp']['tcp_nodelay'] = 1;
+
 
         //  创建并返回一个资源流上下文，该资源流中包含了 options 中提前设定的所有参数的值。
         //  https://www.php.net/manual/zh/function.stream-context-create.php
